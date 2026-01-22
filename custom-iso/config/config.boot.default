@@ -3,8 +3,7 @@ system {
     login {
         user vyos {
             authentication {
-                encrypted-password "$6$rounds=656000$example.hash.here$changeme"
-                plaintext-password ""
+                plaintext-password "vyos"
             }
             level admin
         }
