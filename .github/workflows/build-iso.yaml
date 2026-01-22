@@ -15,7 +15,7 @@ env:
 
 jobs:
   build_generic_iso:
-    runs-on: ubuntu
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     container:
