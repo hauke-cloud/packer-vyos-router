@@ -77,11 +77,12 @@ jobs:
         id: build_generic_iso
         run: |
           cd vyos-build
-          # Use Docker to build the ISO without privileged mode
+          # Use Docker to build the ISO with privileged mode
           docker pull vyos/vyos-build:current
 
-          # Run the build in Docker with necessary mounts
+          # Run the build in Docker with privileged mode (required for mounting)
           docker run --rm \
+            --privileged \
             -v "$(pwd)":/vyos \
             -w /vyos \
             -e BUILD_BY="$BUILD_BY" \
