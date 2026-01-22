@@ -110,6 +110,7 @@ jobs:
           fi
           
           # Create a helper script to install cloud-config
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/local/bin
           cat > vyos-build/data/live-build-config/includes.chroot/usr/local/bin/install-cloud-config << 'INSTALL_SCRIPT'
           #!/bin/bash
           # Helper script to install cloud-config from examples
