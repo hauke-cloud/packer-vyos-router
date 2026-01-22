@@ -90,18 +90,16 @@ jobs:
             -e VYOS_MIRROR="$VYOS_MIRROR" \
             --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
             vyos/vyos-build:current \
-            bash -c "
-              ./configure \
-                --architecture amd64 \
-                --build-by \"$BUILD_BY\" \
-                --build-type release \
-                --custom-package vyos-1x-smoketest \
-                --debian-mirror \"$DEBIAN_MIRROR\" \
-                --debian-security-mirror \"$DEBIAN_SECURITY_MIRROR\" \
-                --version \"${{ steps.set_env_variables.outputs.build_version }}\" \
-                --vyos-mirror \"$VYOS_MIRROR\" && \
-              sudo make iso
-            "
+            sudo ./build-vyos-image \
+              --architecture amd64 \
+              --build-by "$BUILD_BY" \
+              --build-type release \
+              --custom-package vyos-1x-smoketest \
+              --debian-mirror "$DEBIAN_MIRROR" \
+              --debian-security-mirror "$DEBIAN_SECURITY_MIRROR" \
+              --version "${{ steps.set_env_variables.outputs.build_version }}" \
+              --vyos-mirror "$VYOS_MIRROR" \
+              generic
 
           cd build
           # Determine image name and iso file
