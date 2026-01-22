@@ -10,8 +10,19 @@ custom-iso/
 │   └── config.boot.default     # Default VyOS configuration
 ├── scripts/
 │   └── postinst                # Post-installation script
+├── includes/                   # Additional files to include in ISO
 └── README.md                   # This file
 ```
+
+## Automatic Cloud-Init Integration
+
+Cloud-init example configurations from the repository root are automatically embedded in the ISO:
+
+- `cloud-init.yaml.example` → `/opt/vyatta/etc/cloud-init/cloud-init.yaml.example`
+- `cloud-init-vyos.yaml` → `/opt/vyatta/etc/cloud-init/cloud-init-vyos.example.yaml`
+- `cloud-init-gateway.yaml` → `/opt/vyatta/etc/cloud-init/cloud-init-gateway.example.yaml`
+
+A helper command `install-cloud-config` is also included in the ISO for easy installation.
 
 ## config.boot.default
 
@@ -42,12 +53,27 @@ This script runs after the VyOS system is installed to disk. Use it to:
 - Located at `/opt/vyatta/etc/install-image/postinst` in the ISO
 - Keep it lightweight - heavy operations should be done post-boot
 
+## Using Cloud-Init in the ISO
+
+After installing VyOS from the custom ISO, you can install cloud-init examples:
+
+```bash
+# List available cloud-init examples
+install-cloud-config
+
+# Install a specific example
+install-cloud-config cloud-init-vyos
+
+# This copies the example to /opt/vyatta/etc/cloud/cloud.cfg.d/99-custom.cfg
+```
+
 ## Usage
 
 1. **Edit config.boot.default**: Customize your default VyOS configuration
 2. **Edit postinst**: Add any post-installation commands
-3. **Commit changes**: Push to your repository
-4. **Build ISO**: The GitHub Actions workflow will automatically include your customizations
+3. **Add custom files**: Place any additional files in `includes/` directory
+4. **Commit changes**: Push to your repository
+5. **Build ISO**: The GitHub Actions workflow will automatically include your customizations
 
 ## Testing
 
@@ -56,6 +82,7 @@ After building the ISO with your customizations:
 2. Check that the default config is applied: `show configuration`
 3. Install to disk and verify the postinst script ran successfully
 4. Check logs: `show log` or `/var/log/vyos/`
+5. Test cloud-init installation: `install-cloud-config`
 
 ## Examples
 
