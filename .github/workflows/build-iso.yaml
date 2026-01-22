@@ -73,6 +73,32 @@ jobs:
           repository: vyos/vyos-build
           path: vyos-build
 
+      - name: Apply custom configurations
+        run: |
+          # Create directories if they don't exist
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image
+          
+          # Copy custom config.boot.default if it exists
+          if [ -f custom-iso/config/config.boot.default ]; then
+            echo "Copying custom config.boot.default"
+            cp custom-iso/config/config.boot.default \
+              vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/config.boot.default
+          fi
+          
+          # Copy custom postinst script if it exists
+          if [ -f custom-iso/scripts/postinst ]; then
+            echo "Copying custom postinst script"
+            cp custom-iso/scripts/postinst \
+              vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image/postinst
+            chmod +x vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image/postinst
+          fi
+          
+          # Copy any additional custom files from custom-iso/includes/ if directory exists
+          if [ -d custom-iso/includes ]; then
+            echo "Copying additional custom files"
+            cp -r custom-iso/includes/* vyos-build/data/live-build-config/includes.chroot/ || true
+          fi
+
       - name: Build generic ISO image using Docker
         id: build_generic_iso
         run: |
