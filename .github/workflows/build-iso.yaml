@@ -116,7 +116,8 @@ jobs:
           echo "generic_image_name=${GENERIC_IMAGE_NAME}" >> $GITHUB_OUTPUT
           echo "generic_image_iso=${GENERIC_IMAGE_ISO}" >> $GITHUB_OUTPUT
 
-          # Move artifacts to workspace
+          # Fix ownership and move artifacts to workspace
+          sudo chown -R $(id -u):$(id -g) .
           [ -f manifest.json ] && mv manifest.json $GITHUB_WORKSPACE/ || echo '{"artifacts": []}' > $GITHUB_WORKSPACE/manifest.json
           mv ${GENERIC_IMAGE_ISO} $GITHUB_WORKSPACE/
 
