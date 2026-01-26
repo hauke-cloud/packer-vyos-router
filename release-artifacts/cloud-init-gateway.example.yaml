@@ -1,0 +1,118 @@
+#cloud-config
+# VyOS Gateway with WireGuard VPN configuration
+
+write_files:
+  - path: /config/scripts/vyos-gateway-init.sh
+    permissions: '0755'
+    content: |
+      #!/bin/vbash
+      source /opt/vyatta/etc/functions/script-template
+      
+      configure
+      
+      # System configuration
+      set system host-name ${hostname}
+      set system time-zone UTC
+      
+      # DNS
+      %{ for dns in dns_servers ~}
+      set system name-server ${dns}
+      %{ endfor ~}
+      
+      # NTP
+      set system ntp server time1.vyos.net
+      set system ntp server time2.vyos.net
+      
+      # SSH
+      set service ssh port 22
+      set service ssh disable-password-authentication
+      
+      # Interfaces
+      set interfaces ethernet eth0 description 'WAN'
+      set interfaces ethernet eth0 address dhcp
+      
+      set interfaces ethernet eth1 description 'LAN'
+      set interfaces ethernet eth1 address '10.0.1.1/24'
+      
+      # WireGuard VPN
+      set interfaces wireguard wg0 address '${wireguard_network}'
+      set interfaces wireguard wg0 port ${wireguard_port}
+      set interfaces wireguard wg0 description 'VPN'
+      
+      # Generate WireGuard private key if not exists
+      run generate pki wireguard key-pair install interface wg0
+      
+      %{ for name, client in wireguard_clients ~}
+      # Client: ${name}
+      set interfaces wireguard wg0 peer ${name} public-key '${client.public_key}'
+      set interfaces wireguard wg0 peer ${name} allowed-ips '${client.ip_address}/32'
+      %{ endfor ~}
+      
+      # NAT for outbound traffic
+      set nat source rule 100 outbound-interface 'eth0'
+      set nat source rule 100 source address '10.0.0.0/8'
+      set nat source rule 100 translation address masquerade
+      
+      set nat source rule 200 outbound-interface 'eth0'
+      set nat source rule 200 source address '10.99.0.0/24'
+      set nat source rule 200 translation address masquerade
+      
+      # Firewall - WAN to local
+      set firewall name WAN_LOCAL default-action drop
+      set firewall name WAN_LOCAL rule 10 action accept
+      set firewall name WAN_LOCAL rule 10 state established enable
+      set firewall name WAN_LOCAL rule 10 state related enable
+      
+      set firewall name WAN_LOCAL rule 20 action accept
+      set firewall name WAN_LOCAL rule 20 protocol icmp
+      
+      set firewall name WAN_LOCAL rule 30 action accept
+      set firewall name WAN_LOCAL rule 30 destination port 22
+      set firewall name WAN_LOCAL rule 30 protocol tcp
+      
+      set firewall name WAN_LOCAL rule 40 action accept
+      set firewall name WAN_LOCAL rule 40 destination port ${wireguard_port}
+      set firewall name WAN_LOCAL rule 40 protocol udp
+      
+      set firewall interface eth0 local name WAN_LOCAL
+      
+      # Firewall - WAN to LAN
+      set firewall name WAN_LAN default-action drop
+      set firewall name WAN_LAN rule 10 action accept
+      set firewall name WAN_LAN rule 10 state established enable
+      set firewall name WAN_LAN rule 10 state related enable
+      
+      set firewall interface eth0 in name WAN_LAN
+      
+      # Allow forwarding from VPN to LAN
+      set firewall name VPN_LAN default-action accept
+      set firewall interface wg0 in name VPN_LAN
+      
+      # Logging
+      set system syslog global facility all level info
+      set system syslog global facility protocols level debug
+      
+      commit
+      save
+      exit
+      
+      # Display WireGuard public key
+      echo "========================================="
+      echo "VyOS Gateway Configuration Complete"
+      echo "========================================="
+      echo "WireGuard Public Key:"
+      sudo wg show wg0 public-key
+      echo "========================================="
+
+runcmd:
+  - sleep 20
+  - /config/scripts/vyos-gateway-init.sh
+
+users:
+  - name: vyos
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/vbash
+
+ssh_pwauth: false
+
+final_message: "VyOS VPN Gateway ready after $UPTIME seconds"
