@@ -77,6 +77,7 @@ jobs:
         run: |
           # Create directories if they don't exist
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/local/bin
           
           # Copy custom config.boot.default if it exists
           if [ -f custom-iso/config/config.boot.default ]; then
@@ -91,6 +92,14 @@ jobs:
             cp custom-iso/scripts/postinst \
               vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image/postinst
             chmod +x vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image/postinst
+          fi
+          
+          # Copy auto-install script for Packer automation
+          if [ -f custom-iso/scripts/auto-install.sh ]; then
+            echo "Copying auto-install script"
+            cp custom-iso/scripts/auto-install.sh \
+              vyos-build/data/live-build-config/includes.chroot/usr/local/bin/vyos-auto-install
+            chmod +x vyos-build/data/live-build-config/includes.chroot/usr/local/bin/vyos-auto-install
           fi
           
           # Copy any additional custom files from custom-iso/includes/ if directory exists
