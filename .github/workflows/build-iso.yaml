@@ -101,90 +101,90 @@ jobs:
           
           # Create a systemd service enablement script that will run during build
           mkdir -p vyos-build/data/live-build-config/hooks/live
-          cat > vyos-build/data/live-build-config/hooks/live/50-enable-cloud-init.chroot << 'HOOK'
-#!/bin/bash
-# Enable cloud-init services
-set -e
-echo "Enabling cloud-init services..."
-systemctl enable cloud-init.service || true
-systemctl enable cloud-init-local.service || true
-systemctl enable cloud-config.service || true
-systemctl enable cloud-final.service || true
-echo "Cloud-init services enabled"
-HOOK
+          cat > vyos-build/data/live-build-config/hooks/live/50-enable-cloud-init.chroot <<'EOF'
+          #!/bin/bash
+          # Enable cloud-init services
+          set -e
+          echo "Enabling cloud-init services..."
+          systemctl enable cloud-init.service || true
+          systemctl enable cloud-init-local.service || true
+          systemctl enable cloud-config.service || true
+          systemctl enable cloud-final.service || true
+          echo "Cloud-init services enabled"
+          EOF
           chmod +x vyos-build/data/live-build-config/hooks/live/50-enable-cloud-init.chroot
           
           # Create a basic cloud-init configuration for VyOS
-          cat > vyos-build/data/live-build-config/includes.chroot/etc/cloud/cloud.cfg.d/99-vyos-default.cfg << 'CLOUDCFG'
-# VyOS cloud-init default configuration
-# This enables cloud-init support by default
-
-# Hetzner Cloud uses OpenStack metadata service
-# Priority order: Hetzner/OpenStack first, then other common cloud providers
-datasource_list: [ OpenStack, NoCloud, ConfigDrive, Ec2, Azure, GCE, None ]
-
-# Hetzner Cloud specific configuration
-datasource:
-  OpenStack:
-    metadata_urls: ['http://169.254.169.254']
-    max_wait: 10
-    timeout: 10
-    retries: 5
-
-# Preserve existing network configuration
-network:
-  config: disabled
-
-# Disable default cloud-init modules that might interfere with VyOS
-cloud_init_modules:
-  - migrator
-  - seed_random
-  - bootcmd
-  - write-files
-  - growpart
-  - resizefs
-  - disk_setup
-  - mounts
-  - set_hostname
-  - update_hostname
-  - update_etc_hosts
-  - ca-certs
-  - rsyslog
-  - users-groups
-
-cloud_config_modules:
-  - ssh-import-id
-  - locale
-  - set-passwords
-  - ssh
-  - runcmd
-
-cloud_final_modules:
-  - scripts-vendor
-  - scripts-per-once
-  - scripts-per-boot
-  - scripts-per-instance
-  - scripts-user
-  - ssh-authkey-fingerprints
-  - keys-to-console
-  - final-message
-
-# Don't manage /etc/hosts or hostname through cloud-init
-manage_etc_hosts: false
-
-# VyOS-specific user configuration
-system_info:
-  default_user:
-    name: vyos
-    lock_passwd: false
-    gecos: VyOS User
-    groups: [users, admin, sudo]
-    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
-    shell: /bin/vbash
-  paths:
-    cloud_dir: /var/lib/cloud/
-    templates_dir: /etc/cloud/templates/
-CLOUDCFG
+          cat > vyos-build/data/live-build-config/includes.chroot/etc/cloud/cloud.cfg.d/99-vyos-default.cfg <<'EOF'
+          # VyOS cloud-init default configuration
+          # This enables cloud-init support by default
+          
+          # Hetzner Cloud uses OpenStack metadata service
+          # Priority order: Hetzner/OpenStack first, then other common cloud providers
+          datasource_list: [ OpenStack, NoCloud, ConfigDrive, Ec2, Azure, GCE, None ]
+          
+          # Hetzner Cloud specific configuration
+          datasource:
+            OpenStack:
+              metadata_urls: ['http://169.254.169.254']
+              max_wait: 10
+              timeout: 10
+              retries: 5
+          
+          # Preserve existing network configuration
+          network:
+            config: disabled
+          
+          # Disable default cloud-init modules that might interfere with VyOS
+          cloud_init_modules:
+            - migrator
+            - seed_random
+            - bootcmd
+            - write-files
+            - growpart
+            - resizefs
+            - disk_setup
+            - mounts
+            - set_hostname
+            - update_hostname
+            - update_etc_hosts
+            - ca-certs
+            - rsyslog
+            - users-groups
+          
+          cloud_config_modules:
+            - ssh-import-id
+            - locale
+            - set-passwords
+            - ssh
+            - runcmd
+          
+          cloud_final_modules:
+            - scripts-vendor
+            - scripts-per-once
+            - scripts-per-boot
+            - scripts-per-instance
+            - scripts-user
+            - ssh-authkey-fingerprints
+            - keys-to-console
+            - final-message
+          
+          # Don't manage /etc/hosts or hostname through cloud-init
+          manage_etc_hosts: false
+          
+          # VyOS-specific user configuration
+          system_info:
+            default_user:
+              name: vyos
+              lock_passwd: false
+              gecos: VyOS User
+              groups: [users, admin, sudo]
+              sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+              shell: /bin/vbash
+            paths:
+              cloud_dir: /var/lib/cloud/
+              templates_dir: /etc/cloud/templates/
+          EOF
           
           # Copy cloud-init example configurations into the ISO
           echo "Copying cloud-init example configurations"
