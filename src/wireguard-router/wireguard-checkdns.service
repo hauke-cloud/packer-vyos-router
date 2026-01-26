@@ -1,0 +1,10 @@
+[Unit]
+Description=Check DNS Entry and Restart Wireshark if IP Changes
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/wireguard-checkdns.sh
+Type=oneshot
+
+[Install]
+WantedBy=multi-user.target

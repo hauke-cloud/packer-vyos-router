@@ -1,0 +1,9 @@
+# Hetzner Cloud API Token
+hcloud_token = "your-hetzner-cloud-api-token"
+
+# SSH Keys (IDs or names from Hetzner Cloud)
+# Get key IDs with: hcloud ssh-key list
+ssh_keys = ["my-ssh-key"]
+
+# Optional: Customize deployment
+# snapshot_name = "vyos-1.4-rolling-latest"

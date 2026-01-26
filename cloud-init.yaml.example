@@ -1,0 +1,69 @@
+#cloud-config
+# Example cloud-init configuration for VyOS
+# This will be applied when the server boots for the first time
+
+# Configure VyOS via shell commands
+# Note: VyOS requires configuration via its CLI
+runcmd:
+  # Wait for VyOS to be ready
+  - sleep 10
+  # Apply VyOS configuration
+  - |
+    /opt/vyatta/sbin/vyatta-cfg-cmd-wrapper <<'EOF'
+    begin
+    
+    # Set hostname
+    set system host-name vyos-server
+    
+    # Configure DNS
+    set system name-server 1.1.1.1
+    set system name-server 8.8.8.8
+    
+    # Configure time zone
+    set system time-zone UTC
+    
+    # Configure NTP
+    set system ntp server time1.vyos.net
+    set system ntp server time2.vyos.net
+    
+    # Configure SSH
+    set service ssh port 22
+    set service ssh disable-password-authentication
+    
+    # Configure network interfaces
+    set interfaces ethernet eth0 description 'WAN'
+    set interfaces ethernet eth0 address dhcp
+    
+    # Optional: Configure additional users
+    # set system login user admin authentication plaintext-password 'your-password'
+    # set system login user admin level admin
+    
+    # Optional: Add SSH keys
+    # set system login user vyos authentication public-keys key1 key 'ssh-rsa AAAA...'
+    # set system login user vyos authentication public-keys key1 type ssh-rsa
+    
+    commit
+    save
+    exit
+    EOF
+
+# SSH authorized keys for vyos user
+# Uncomment and add your SSH public key
+# users:
+#   - name: vyos
+#     ssh_authorized_keys:
+#       - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB... your-key-here
+
+# Alternative: Write configuration file directly
+# write_files:
+#   - path: /config/scripts/vyos-cloud-init.sh
+#     permissions: '0755'
+#     content: |
+#       #!/bin/vbash
+#       source /opt/vyatta/etc/functions/script-template
+#       configure
+#       # Your VyOS commands here
+#       set system host-name my-vyos
+#       commit
+#       save
+#       exit

@@ -78,6 +78,7 @@ jobs:
           # Create directories if they don't exist
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/local/bin
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/bin
           
           # Copy custom config.boot.default if it exists
           if [ -f custom-iso/config/config.boot.default ]; then
@@ -94,12 +95,20 @@ jobs:
             chmod +x vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image/postinst
           fi
           
-          # Copy auto-install script for Packer automation
+          # Copy auto-install script for Packer automation to multiple locations for compatibility
           if [ -f custom-iso/scripts/auto-install.sh ]; then
-            echo "Copying auto-install script"
+            echo "Copying auto-install script to multiple locations"
+            # Try /usr/local/bin (preferred location)
             cp custom-iso/scripts/auto-install.sh \
               vyos-build/data/live-build-config/includes.chroot/usr/local/bin/vyos-auto-install
             chmod +x vyos-build/data/live-build-config/includes.chroot/usr/local/bin/vyos-auto-install
+            
+            # Also copy to /usr/bin as fallback
+            cp custom-iso/scripts/auto-install.sh \
+              vyos-build/data/live-build-config/includes.chroot/usr/bin/vyos-auto-install
+            chmod +x vyos-build/data/live-build-config/includes.chroot/usr/bin/vyos-auto-install
+            
+            echo "Auto-install script copied and made executable"
           fi
           
           # Copy any additional custom files from custom-iso/includes/ if directory exists

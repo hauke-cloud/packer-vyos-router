@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Wireguard connection and restart itif not reachable
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/wireguard-check-connection.sh
+Type=oneshot
+
+[Install]
+WantedBy=multi-user.target
