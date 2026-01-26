@@ -9,7 +9,7 @@ DOWNLOAD_DIR="./downloads"
 usage() {
     echo "Usage: $0 [version|latest]"
     echo ""
-    echo "Download VyOS ISO and cloud-init examples from GitHub releases"
+    echo "Download VyOS ISO from GitHub releases"
     echo ""
     echo "Examples:"
     echo "  $0               # Download latest release"
@@ -57,8 +57,7 @@ download_release() {
     echo ""
     echo "Next steps:"
     echo "  1. Verify checksums: cd $DOWNLOAD_DIR && sha256sum -c SHA256SUMS"
-    echo "  2. Review cloud-init examples: ls -l $DOWNLOAD_DIR/*.yaml"
-    echo "  3. Use ISO: Boot from the .iso file"
+    echo "  2. Use ISO: Boot from the .iso file"
     echo ""
 }
 

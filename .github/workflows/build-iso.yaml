@@ -77,8 +77,6 @@ jobs:
         run: |
           # Create directories if they don't exist
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/cloud-init
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/etc/cloud/cloud.cfg.d
           
           # Copy custom config.boot.default if it exists
           if [ -f custom-iso/config/config.boot.default ]; then
@@ -94,167 +92,6 @@ jobs:
               vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image/postinst
             chmod +x vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image/postinst
           fi
-          
-          # Enable cloud-init by default
-          echo "Configuring cloud-init to be enabled by default"
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/etc/systemd/system/multi-user.target.wants
-          
-          # Create a systemd service enablement script that will run during build
-          mkdir -p vyos-build/data/live-build-config/hooks/live
-          cat > vyos-build/data/live-build-config/hooks/live/50-enable-cloud-init.chroot <<'EOF'
-          #!/bin/bash
-          # Enable cloud-init services
-          set -e
-          echo "Enabling cloud-init services..."
-          systemctl enable cloud-init.service || true
-          systemctl enable cloud-init-local.service || true
-          systemctl enable cloud-config.service || true
-          systemctl enable cloud-final.service || true
-          echo "Cloud-init services enabled"
-          EOF
-          chmod +x vyos-build/data/live-build-config/hooks/live/50-enable-cloud-init.chroot
-          
-          # Create a basic cloud-init configuration for VyOS
-          cat > vyos-build/data/live-build-config/includes.chroot/etc/cloud/cloud.cfg.d/99-vyos-default.cfg <<'EOF'
-          # VyOS cloud-init default configuration
-          # This enables cloud-init support by default
-          
-          # Hetzner Cloud uses OpenStack metadata service
-          # Priority order: Hetzner/OpenStack first, then other common cloud providers
-          datasource_list: [ OpenStack, NoCloud, ConfigDrive, Ec2, Azure, GCE, None ]
-          
-          # Hetzner Cloud specific configuration
-          datasource:
-            OpenStack:
-              metadata_urls: ['http://169.254.169.254']
-              max_wait: 10
-              timeout: 10
-              retries: 5
-          
-          # Preserve existing network configuration
-          network:
-            config: disabled
-          
-          # Disable default cloud-init modules that might interfere with VyOS
-          cloud_init_modules:
-            - migrator
-            - seed_random
-            - bootcmd
-            - write-files
-            - growpart
-            - resizefs
-            - disk_setup
-            - mounts
-            - set_hostname
-            - update_hostname
-            - update_etc_hosts
-            - ca-certs
-            - rsyslog
-            - users-groups
-          
-          cloud_config_modules:
-            - ssh-import-id
-            - locale
-            - set-passwords
-            - ssh
-            - runcmd
-          
-          cloud_final_modules:
-            - scripts-vendor
-            - scripts-per-once
-            - scripts-per-boot
-            - scripts-per-instance
-            - scripts-user
-            - ssh-authkey-fingerprints
-            - keys-to-console
-            - final-message
-          
-          # Don't manage /etc/hosts or hostname through cloud-init
-          manage_etc_hosts: false
-          
-          # VyOS-specific user configuration
-          system_info:
-            default_user:
-              name: vyos
-              lock_passwd: false
-              gecos: VyOS User
-              groups: [users, admin, sudo]
-              sudo: ["ALL=(ALL) NOPASSWD:ALL"]
-              shell: /bin/vbash
-            paths:
-              cloud_dir: /var/lib/cloud/
-              templates_dir: /etc/cloud/templates/
-          EOF
-          
-          # Copy cloud-init example configurations into the ISO
-          echo "Copying cloud-init example configurations"
-          if [ -f cloud-init.yaml.example ]; then
-            cp cloud-init.yaml.example \
-              vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/cloud-init/cloud-init.yaml.example
-          fi
-          if [ -f cloud-init-vyos.yaml ]; then
-            cp cloud-init-vyos.yaml \
-              vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/cloud-init/cloud-init-vyos.example.yaml
-          fi
-          if [ -f cloud-init-gateway.yaml ]; then
-            cp cloud-init-gateway.yaml \
-              vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/cloud-init/cloud-init-gateway.example.yaml
-          fi
-          
-          # Create a helper script to install cloud-config
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/local/bin
-          cat > vyos-build/data/live-build-config/includes.chroot/usr/local/bin/install-cloud-config << 'INSTALL_SCRIPT'
-          #!/bin/bash
-          # Helper script to install cloud-config from examples
-          
-          set -e
-          
-          EXAMPLES_DIR="/opt/vyatta/etc/cloud-init"
-          DEST_DIR="/opt/vyatta/etc/cloud"
-          
-          usage() {
-            echo "Usage: $0 [example-name]"
-            echo ""
-            echo "Install cloud-config from examples into /opt/vyatta/etc/cloud/"
-            echo ""
-            echo "Available examples:"
-            if [ -d "$EXAMPLES_DIR" ]; then
-              for file in "$EXAMPLES_DIR"/*.example.yaml; do
-                [ -f "$file" ] && echo "  - $(basename "$file" .example.yaml)"
-              done
-            fi
-            echo ""
-            echo "Examples:"
-            echo "  $0 cloud-init-vyos    # Install VyOS cloud-init config"
-            echo "  $0 cloud-init-gateway # Install gateway cloud-init config"
-            exit 1
-          }
-          
-          if [ $# -eq 0 ]; then
-            usage
-          fi
-          
-          EXAMPLE_NAME="$1"
-          EXAMPLE_FILE="$EXAMPLES_DIR/${EXAMPLE_NAME}.example.yaml"
-          
-          if [ ! -f "$EXAMPLE_FILE" ]; then
-            echo "Error: Example file not found: $EXAMPLE_FILE"
-            usage
-          fi
-          
-          # Create destination directory
-          mkdir -p "$DEST_DIR/cloud.cfg.d"
-          
-          # Copy the configuration
-          cp "$EXAMPLE_FILE" "$DEST_DIR/cloud.cfg.d/99-custom.cfg"
-          
-          echo "Cloud-config installed successfully!"
-          echo "Installed: $EXAMPLE_FILE -> $DEST_DIR/cloud.cfg.d/99-custom.cfg"
-          echo ""
-          echo "You can now use cloud-init with this configuration."
-          INSTALL_SCRIPT
-          
-          chmod +x vyos-build/data/live-build-config/includes.chroot/usr/local/bin/install-cloud-config
           
           # Copy any additional custom files from custom-iso/includes/ if directory exists
           if [ -d custom-iso/includes ]; then
@@ -285,7 +122,6 @@ jobs:
               --build-by "$BUILD_BY" \
               --build-type release \
               --custom-package vyos-1x-smoketest \
-              --custom-package cloud-init \
               --debian-mirror "$DEBIAN_MIRROR" \
               --debian-security-mirror "$DEBIAN_SECURITY_MIRROR" \
               --version "${{ steps.set_env_variables.outputs.build_version }}" \
@@ -311,16 +147,11 @@ jobs:
           [ -f manifest.json ] && mv manifest.json $GITHUB_WORKSPACE/ || echo '{"artifacts": []}' > $GITHUB_WORKSPACE/manifest.json
           mv ${GENERIC_IMAGE_ISO} $GITHUB_WORKSPACE/
 
-      - name: Prepare cloud-init examples for release
+      - name: Prepare release artifacts
         run: |
           mkdir -p release-artifacts
           cp ${{ steps.build_generic_iso.outputs.generic_image_iso }} release-artifacts/
           cp manifest.json release-artifacts/
-          
-          # Copy cloud-init examples (ensure we're in the right directory)
-          [ -f cloud-init.yaml.example ] && cp cloud-init.yaml.example release-artifacts/cloud-init.yaml.example || echo "Warning: cloud-init.yaml.example not found"
-          [ -f cloud-init-vyos.yaml ] && cp cloud-init-vyos.yaml release-artifacts/cloud-init-vyos.example.yaml || echo "Warning: cloud-init-vyos.yaml not found"
-          [ -f cloud-init-gateway.yaml ] && cp cloud-init-gateway.yaml release-artifacts/cloud-init-gateway.example.yaml || echo "Warning: cloud-init-gateway.yaml not found"
           
           # Create README for the release
           cat > release-artifacts/README.md << 'EOF'
@@ -330,33 +161,12 @@ jobs:
           
           - **ISO File**: `${{ steps.build_generic_iso.outputs.generic_image_iso }}` - The custom VyOS ISO image
           - **manifest.json**: Build manifest with metadata
-          - **cloud-init examples**: Example cloud-init configuration files
           
           ## Usage
           
-          ### 1. Download the ISO
+          ### Download the ISO
           
           Download the ISO file from this release and use it to install VyOS.
-          
-          ### 2. Cloud-Init Configuration
-          
-          The included cloud-init example files show how to configure VyOS on first boot:
-          
-          - `cloud-init.yaml.example` - Basic cloud-init template
-          - `cloud-init-vyos.example.yaml` - VyOS-specific configuration
-          - `cloud-init-gateway.example.yaml` - Gateway/router configuration
-          
-          ### 3. Using with Hetzner Cloud
-          
-          ```bash
-          # Create server with cloud-init
-          hcloud server create \
-            --name vyos-router \
-            --type cx23 \
-            --image <snapshot-id> \
-            --location nbg1 \
-            --user-data-from-file cloud-init-vyos.yaml
-          ```
           
           ## Build Information
           
@@ -405,14 +215,12 @@ jobs:
             ## 📦 Downloads
             
             - **ISO Image**: Download the `.iso` file below
-            - **Cloud-Init Examples**: Configuration templates for automated setup
             - **SHA256SUMS**: Verify download integrity
             
             ## 🚀 Quick Start
             
             1. Download the ISO file
             2. Use with your preferred virtualization platform or cloud provider
-            3. Customize using the included cloud-init examples
             
             ## 📋 Build Details
             
@@ -427,7 +235,6 @@ jobs:
             This build includes any custom configurations present in the repository:
             - Default VyOS configuration (`config.boot.default`)
             - Post-installation scripts (`postinst`)
-            - Cloud-init support for automated provisioning
             
             ## 📖 Documentation
             
@@ -443,9 +250,6 @@ jobs:
             release-artifacts/${{ steps.build_generic_iso.outputs.generic_image_iso }}
             release-artifacts/manifest.json
             release-artifacts/README.md
-            release-artifacts/cloud-init.yaml.example
-            release-artifacts/cloud-init-vyos.example.yaml
-            release-artifacts/cloud-init-gateway.example.yaml
             release-artifacts/SHA256SUMS
           draft: false
           prerelease: false
