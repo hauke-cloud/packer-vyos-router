@@ -317,10 +317,10 @@ jobs:
           cp ${{ steps.build_generic_iso.outputs.generic_image_iso }} release-artifacts/
           cp manifest.json release-artifacts/
           
-          # Copy cloud-init examples
-          cp cloud-init.yaml.example release-artifacts/cloud-init.yaml.example
-          [ -f cloud-init-vyos.yaml ] && cp cloud-init-vyos.yaml release-artifacts/cloud-init-vyos.example.yaml || true
-          [ -f cloud-init-gateway.yaml ] && cp cloud-init-gateway.yaml release-artifacts/cloud-init-gateway.example.yaml || true
+          # Copy cloud-init examples (ensure we're in the right directory)
+          [ -f cloud-init.yaml.example ] && cp cloud-init.yaml.example release-artifacts/cloud-init.yaml.example || echo "Warning: cloud-init.yaml.example not found"
+          [ -f cloud-init-vyos.yaml ] && cp cloud-init-vyos.yaml release-artifacts/cloud-init-vyos.example.yaml || echo "Warning: cloud-init-vyos.yaml not found"
+          [ -f cloud-init-gateway.yaml ] && cp cloud-init-gateway.yaml release-artifacts/cloud-init-gateway.example.yaml || echo "Warning: cloud-init-gateway.yaml not found"
           
           # Create README for the release
           cat > release-artifacts/README.md << 'EOF'
