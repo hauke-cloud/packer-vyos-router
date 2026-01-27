@@ -75,19 +75,8 @@ jobs:
 
       - name: Copy build wrapper script
         run: |
-          cp build-vyos-image-wrapper vyos-build/
+          cp scripts/build-vyos-image-wrapper vyos-build/
           chmod +x vyos-build/build-vyos-image-wrapper
-
-      - name: Copy additional custom files (if present)
-        run: |
-          if [ -d custom-iso/includes ] && [ "$(ls -A custom-iso/includes 2>/dev/null)" ]; then
-            echo "📄 Copying additional custom files from custom-iso/includes/..."
-            mkdir -p vyos-build/data/live-build-config/includes.chroot
-            cp -r custom-iso/includes/* vyos-build/data/live-build-config/includes.chroot/
-            echo "✓ Additional files copied"
-          else
-            echo "ℹ  No additional custom files in custom-iso/includes/ (skipped)"
-          fi
 
       - name: Build generic ISO image using Docker
         id: build_generic_iso

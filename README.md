@@ -17,18 +17,36 @@ Packer template to build a VyOS router server on Hetzner
 
 - **Custom ISO Build Process**: Uses a wrapper script around VyOS's `build-vyos-image` to add custom APT repositories and packages
 - **Automated Builds**: GitHub Actions workflow for nightly ISO builds
-- **Customization Support**: Integrates with [vyos-customization](https://github.com/hauke-cloud/vyos-customization) Debian packages
+- **Package-Based Customization**: All customizations managed through the [vyos-customization](https://github.com/hauke-cloud/vyos-customization) Debian package
 - **Cloud-Ready Images**: Generates VyOS images optimized for Hetzner Cloud
+
+## Repository Structure
+
+```
+packer-vyos-router/
+├── scripts/              # Build and deployment scripts
+│   ├── build-vyos-image-wrapper    # VyOS build wrapper with custom repo support
+│   ├── build-local-example.sh      # Local build example
+│   ├── boot_iso.sh                 # ISO boot script for Packer
+│   ├── install_vyos.sh             # VyOS installation script
+│   └── download-release.sh         # Download VyOS ISO from releases
+├── .github/workflows/    # GitHub Actions CI/CD workflows
+├── vyos.pkr.hcl         # Packer template for Hetzner Cloud
+└── release-artifacts/   # Build artifacts directory
+```
 
 ## Build Customization
 
 This repository includes `build-vyos-image-wrapper`, a wrapper script that extends the official VyOS build process with support for custom APT repositories. This allows you to:
 
 - Add custom APT repositories during the ISO build
-- Install custom Debian packages from those repositories
-- Maintain separation between upstream VyOS and your customizations
+- Install custom Debian packages from those repositories automatically
+- Maintain all customizations in a versioned Debian package
+- Maintain clean separation between upstream VyOS and your customizations
 
-See [BUILD_WRAPPER_DOCUMENTATION.md](BUILD_WRAPPER_DOCUMENTATION.md) for detailed information about the wrapper script.
+All configuration files, scripts, and customizations are now managed through the [vyos-customization](https://github.com/hauke-cloud/vyos-customization) Debian package, which is installed automatically during the ISO build process.
+
+See [scripts/README.md](scripts/README.md) for detailed information about available scripts.
 
 
 ## 📄 License

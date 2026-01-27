@@ -112,7 +112,7 @@ build {
   }
 
   provisioner "file" {
-    source      = "${path.root}/boot_iso.sh"
+    source      = "${path.root}/scripts/boot_iso.sh"
     destination = "/tmp/boot_iso.sh"
   }
 
@@ -135,7 +135,7 @@ build {
   }
 
   provisioner "file" {
-    source      = "${path.root}/install_vyos.sh"
+    source      = "${path.root}/scripts/install_vyos.sh"
     destination = "/tmp/install_vyos.sh"
   }
 

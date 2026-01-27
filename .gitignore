@@ -320,3 +320,7 @@ Desktop.ini
 
 # End of .gitignore
 
+
+# Local git repositories (should be managed separately)
+smee/
+vyos-customization/
