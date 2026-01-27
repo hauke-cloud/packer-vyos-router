@@ -13,7 +13,22 @@
 
 Packer template to build a VyOS router server on Hetzner
 
+## Features
 
+- **Custom ISO Build Process**: Uses a wrapper script around VyOS's `build-vyos-image` to add custom APT repositories and packages
+- **Automated Builds**: GitHub Actions workflow for nightly ISO builds
+- **Customization Support**: Integrates with [vyos-customization](https://github.com/hauke-cloud/vyos-customization) Debian packages
+- **Cloud-Ready Images**: Generates VyOS images optimized for Hetzner Cloud
+
+## Build Customization
+
+This repository includes `build-vyos-image-wrapper`, a wrapper script that extends the official VyOS build process with support for custom APT repositories. This allows you to:
+
+- Add custom APT repositories during the ISO build
+- Install custom Debian packages from those repositories
+- Maintain separation between upstream VyOS and your customizations
+
+See [BUILD_WRAPPER_DOCUMENTATION.md](BUILD_WRAPPER_DOCUMENTATION.md) for detailed information about the wrapper script.
 
 
 ## 📄 License

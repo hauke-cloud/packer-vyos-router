@@ -73,48 +73,20 @@ jobs:
           repository: vyos/vyos-build
           path: vyos-build
 
-      - name: Apply custom configurations
+      - name: Copy build wrapper script
         run: |
-          # Create directories if they don't exist
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/local/bin
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/bin
-          
-          # Copy custom config.boot.default if it exists
-          if [ -f custom-iso/config/config.boot.default ]; then
-            echo "Copying custom config.boot.default"
-            cp custom-iso/config/config.boot.default \
-              vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/config.boot.default
-          fi
-          
-          # Copy custom postinst script if it exists
-          if [ -f custom-iso/scripts/postinst ]; then
-            echo "Copying custom postinst script"
-            cp custom-iso/scripts/postinst \
-              vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image/postinst
-            chmod +x vyos-build/data/live-build-config/includes.chroot/opt/vyatta/etc/install-image/postinst
-          fi
-          
-          # Copy auto-install script for Packer automation to multiple locations for compatibility
-          if [ -f custom-iso/scripts/auto-install.sh ]; then
-            echo "Copying auto-install script to multiple locations"
-            # Try /usr/local/bin (preferred location)
-            cp custom-iso/scripts/auto-install.sh \
-              vyos-build/data/live-build-config/includes.chroot/usr/local/bin/vyos-auto-install
-            chmod +x vyos-build/data/live-build-config/includes.chroot/usr/local/bin/vyos-auto-install
-            
-            # Also copy to /usr/bin as fallback
-            cp custom-iso/scripts/auto-install.sh \
-              vyos-build/data/live-build-config/includes.chroot/usr/bin/vyos-auto-install
-            chmod +x vyos-build/data/live-build-config/includes.chroot/usr/bin/vyos-auto-install
-            
-            echo "Auto-install script copied and made executable"
-          fi
-          
-          # Copy any additional custom files from custom-iso/includes/ if directory exists
-          if [ -d custom-iso/includes ]; then
-            echo "Copying additional custom files"
-            cp -r custom-iso/includes/* vyos-build/data/live-build-config/includes.chroot/ || true
+          cp build-vyos-image-wrapper vyos-build/
+          chmod +x vyos-build/build-vyos-image-wrapper
+
+      - name: Copy additional custom files (if present)
+        run: |
+          if [ -d custom-iso/includes ] && [ "$(ls -A custom-iso/includes 2>/dev/null)" ]; then
+            echo "📄 Copying additional custom files from custom-iso/includes/..."
+            mkdir -p vyos-build/data/live-build-config/includes.chroot
+            cp -r custom-iso/includes/* vyos-build/data/live-build-config/includes.chroot/
+            echo "✓ Additional files copied"
+          else
+            echo "ℹ  No additional custom files in custom-iso/includes/ (skipped)"
           fi
 
       - name: Build generic ISO image using Docker
@@ -135,11 +107,13 @@ jobs:
             -e VYOS_MIRROR="$VYOS_MIRROR" \
             --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
             vyos/vyos-build:current \
-            sudo ./build-vyos-image \
+            sudo ./build-vyos-image-wrapper \
               --architecture amd64 \
               --build-by "$BUILD_BY" \
               --build-type release \
               --custom-package vyos-1x-smoketest \
+              --customization-mirror "https://hauke-cloud.github.io/vyos-customization/" \
+              --customization-package "vyos-customization" \
               --debian-mirror "$DEBIAN_MIRROR" \
               --debian-security-mirror "$DEBIAN_SECURITY_MIRROR" \
               --version "${{ steps.set_env_variables.outputs.build_version }}" \

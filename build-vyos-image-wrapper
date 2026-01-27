@@ -1,0 +1,104 @@
+#!/bin/bash
+#
+# Wrapper script for build-vyos-image that adds support for custom APT repositories
+# and packages during the VyOS build process.
+#
+# This script extends the standard build-vyos-image with two additional parameters:
+#   --customization-mirror: URL of a custom APT repository (can be specified multiple times)
+#   --customization-package: Package to install from custom repository (can be specified multiple times)
+#
+# Example usage:
+#   ./build-vyos-image-wrapper \
+#     --customization-mirror "https://hauke-cloud.github.io/vyos-customization/" \
+#     --customization-package "vyos-customization" \
+#     --architecture amd64 \
+#     --build-by "hauke-cloud" \
+#     generic
+
+set -e
+
+# Arrays to store custom mirror and package options
+CUSTOMIZATION_MIRRORS=()
+CUSTOMIZATION_PACKAGES=()
+BUILD_VYOS_IMAGE_ARGS=()
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --customization-mirror)
+            CUSTOMIZATION_MIRRORS+=("$2")
+            shift 2
+            ;;
+        --customization-package)
+            CUSTOMIZATION_PACKAGES+=("$2")
+            shift 2
+            ;;
+        *)
+            BUILD_VYOS_IMAGE_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Apply customizations if any were specified
+if [ ${#CUSTOMIZATION_MIRRORS[@]} -gt 0 ] || [ ${#CUSTOMIZATION_PACKAGES[@]} -gt 0 ]; then
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Applying VyOS Customizations"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    
+    # Create necessary directories
+    CHROOT_DIR="data/live-build-config/includes.chroot"
+    SOURCES_LIST_DIR="${CHROOT_DIR}/etc/apt/sources.list.d"
+    PACKAGE_LISTS_DIR="data/live-build-config/package-lists"
+    
+    mkdir -p "${SOURCES_LIST_DIR}"
+    mkdir -p "${PACKAGE_LISTS_DIR}"
+    
+    # Add custom APT repositories
+    if [ ${#CUSTOMIZATION_MIRRORS[@]} -gt 0 ]; then
+        echo "📦 Setting up custom APT repositories..."
+        echo ""
+        
+        REPO_FILE="${SOURCES_LIST_DIR}/vyos-customization.list"
+        > "${REPO_FILE}"  # Clear file if it exists
+        
+        for mirror in "${CUSTOMIZATION_MIRRORS[@]}"; do
+            echo "  ✓ Adding repository: ${mirror}"
+            echo "deb [trusted=yes] ${mirror} ./" >> "${REPO_FILE}"
+        done
+        echo ""
+        echo "✓ APT repositories configured at: ${REPO_FILE}"
+        echo ""
+    fi
+    
+    # Add custom packages to installation list
+    if [ ${#CUSTOMIZATION_PACKAGES[@]} -gt 0 ]; then
+        echo "📦 Adding custom packages to installation list..."
+        echo ""
+        
+        PACKAGE_LIST_FILE="${PACKAGE_LISTS_DIR}/custom.list.chroot"
+        > "${PACKAGE_LIST_FILE}"  # Clear file if it exists
+        
+        for package in "${CUSTOMIZATION_PACKAGES[@]}"; do
+            echo "  ✓ Adding package: ${package}"
+            echo "${package}" >> "${PACKAGE_LIST_FILE}"
+        done
+        echo ""
+        echo "✓ Packages added to installation list at: ${PACKAGE_LIST_FILE}"
+        echo ""
+    fi
+    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  ✅ Customization Configuration Complete"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+fi
+
+# Execute the original build-vyos-image script
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Starting VyOS Image Build"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+exec ./build-vyos-image "${BUILD_VYOS_IMAGE_ARGS[@]}"
