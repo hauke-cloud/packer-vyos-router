@@ -21,7 +21,7 @@ variable "build_identifier" {
 variable "vyos_version" {
   type        = string
   default     = "202601261300"
-  description = "VyOS build version (e.g., 202601260039)"
+  description = "VyOS build version (e.g., 202601260039). Must match a release built with vyos-customization package."
 }
 
 variable "vyos_iso_url" {
@@ -102,6 +102,9 @@ build {
 
   source "source.hcloud.vyos" {}
 
+  # Download the custom VyOS ISO that includes vyos-customization package
+  # The ISO must be built with --customization-mirror and --customization-package
+  # to include the vyos-auto-install script and default configuration
   provisioner "shell" {
     inline = [
       "cloud-init status --wait",
@@ -111,6 +114,7 @@ build {
     ]
   }
 
+  # Boot into VyOS live ISO
   provisioner "file" {
     source      = "${path.root}/scripts/boot_iso.sh"
     destination = "/tmp/boot_iso.sh"
@@ -124,16 +128,20 @@ build {
     ]
   }
 
+  # Verify vyos-customization package files are present in the ISO
   provisioner "shell" {
     inline = [
       "echo 'VyOS live system ready'",
       "cat /etc/os-release || true",
-      "ls -l /usr/local/bin/vyos-auto-install 2>/dev/null && echo 'Found auto-install script at /usr/local/bin' || true",
-      "ls -l /usr/bin/vyos-auto-install 2>/dev/null && echo 'Found auto-install script at /usr/bin' || true",
-      "[ ! -f /usr/local/bin/vyos-auto-install ] && [ ! -f /usr/bin/vyos-auto-install ] && echo 'Auto-install script not found in ISO' || true"
+      "echo 'Checking for vyos-auto-install from vyos-customization package...'",
+      "ls -l /usr/local/bin/vyos-auto-install 2>/dev/null && echo '✓ Found auto-install script at /usr/local/bin (from vyos-customization package)' || echo '✗ Auto-install script not found'",
+      "ls -l /opt/vyatta/etc/config.boot.default 2>/dev/null && echo '✓ Found default config (from vyos-customization package)' || echo 'ℹ No custom default config'",
+      "ls -l /opt/vyatta/etc/install-image/postinst 2>/dev/null && echo '✓ Found postinst script (from vyos-customization package)' || echo 'ℹ No custom postinst script'"
     ]
   }
 
+  # Install VyOS to disk using vyos-auto-install
+  # The vyos-auto-install script is provided by the vyos-customization package
   provisioner "file" {
     source      = "${path.root}/scripts/install_vyos.sh"
     destination = "/tmp/install_vyos.sh"

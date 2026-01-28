@@ -73,10 +73,40 @@ jobs:
           repository: vyos/vyos-build
           path: vyos-build
 
-      - name: Copy build wrapper script
+      - name: Download and prepare vyos-customization package
         run: |
-          cp scripts/build-vyos-image-wrapper vyos-build/
-          chmod +x vyos-build/build-vyos-image-wrapper
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Preparing vyos-customization Package"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          # Clone vyos-customization repository
+          echo "📦 Cloning vyos-customization repository..."
+          git clone --depth 1 https://github.com/hauke-cloud/vyos-customization.git /tmp/vyos-customization
+          
+          # Build the Debian package
+          echo "🔨 Building Debian package..."
+          cd /tmp/vyos-customization
+          
+          # Install build dependencies
+          sudo apt-get install -y debhelper devscripts
+          
+          # Build the package
+          dpkg-buildpackage -us -uc -b
+          
+          # Copy the built .deb to vyos-build/packages/
+          echo "📋 Copying package to vyos-build/packages/..."
+          mkdir -p $GITHUB_WORKSPACE/vyos-build/packages
+          cp ../*.deb $GITHUB_WORKSPACE/vyos-build/packages/
+          
+          echo ""
+          echo "✓ Package prepared:"
+          ls -lh $GITHUB_WORKSPACE/vyos-build/packages/
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  ✅ Package Ready for ISO Build"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
 
       - name: Build generic ISO image using Docker
         id: build_generic_iso
@@ -96,13 +126,11 @@ jobs:
             -e VYOS_MIRROR="$VYOS_MIRROR" \
             --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
             vyos/vyos-build:current \
-            sudo ./build-vyos-image-wrapper \
+            sudo ./build-vyos-image \
               --architecture amd64 \
               --build-by "$BUILD_BY" \
               --build-type release \
               --custom-package vyos-1x-smoketest \
-              --customization-mirror "https://hauke-cloud.github.io/vyos-customization/" \
-              --customization-package "vyos-customization" \
               --debian-mirror "$DEBIAN_MIRROR" \
               --debian-security-mirror "$DEBIAN_SECURITY_MIRROR" \
               --version "${{ steps.set_env_variables.outputs.build_version }}" \

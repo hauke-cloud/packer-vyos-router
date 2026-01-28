@@ -12,8 +12,6 @@ set -e
 BUILD_BY="${BUILD_BY:-hauke-cloud}"
 BUILD_VERSION="${BUILD_VERSION:-1.5-rolling-$(date -u +%Y%m%d%H%M)}"
 ARCHITECTURE="${ARCHITECTURE:-amd64}"
-CUSTOMIZATION_MIRROR="${CUSTOMIZATION_MIRROR:-https://hauke-cloud.github.io/vyos-customization/}"
-CUSTOMIZATION_PACKAGE="${CUSTOMIZATION_PACKAGE:-vyos-customization}"
 
 # Clone vyos-build repository if it doesn't exist
 if [ ! -d "vyos-build" ]; then
@@ -21,10 +19,26 @@ if [ ! -d "vyos-build" ]; then
     git clone https://github.com/vyos/vyos-build.git
 fi
 
-# Copy the wrapper script
-echo "Copying wrapper script..."
-cp scripts/build-vyos-image-wrapper vyos-build/
-chmod +x vyos-build/build-vyos-image-wrapper
+# Clone and build vyos-customization package
+echo "Building vyos-customization package..."
+if [ ! -d "/tmp/vyos-customization" ]; then
+    git clone --depth 1 https://github.com/hauke-cloud/vyos-customization.git /tmp/vyos-customization
+fi
+
+cd /tmp/vyos-customization
+dpkg-buildpackage -us -uc -b || {
+    echo "Package build requires: debhelper devscripts"
+    echo "Install with: sudo apt-get install -y debhelper devscripts"
+    exit 1
+}
+
+# Copy the built .deb to vyos-build/packages/
+echo "Copying package to vyos-build/packages/..."
+mkdir -p $OLDPWD/vyos-build/packages
+cp ../*.deb $OLDPWD/vyos-build/packages/
+ls -lh $OLDPWD/vyos-build/packages/
+
+cd $OLDPWD
 
 # Change to vyos-build directory
 cd vyos-build
@@ -42,13 +56,11 @@ docker run --rm \
     -e BUILD_BY="${BUILD_BY}" \
     --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
     vyos/vyos-build:current \
-    sudo ./build-vyos-image-wrapper \
+    sudo ./build-vyos-image \
         --architecture "${ARCHITECTURE}" \
         --build-by "${BUILD_BY}" \
         --build-type release \
         --custom-package vyos-1x-smoketest \
-        --customization-mirror "${CUSTOMIZATION_MIRROR}" \
-        --customization-package "${CUSTOMIZATION_PACKAGE}" \
         --version "${BUILD_VERSION}" \
         generic
 
