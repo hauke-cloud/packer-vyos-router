@@ -19,26 +19,14 @@ if [ ! -d "vyos-build" ]; then
     git clone https://github.com/vyos/vyos-build.git
 fi
 
-# Clone and build vyos-customization package
-echo "Building vyos-customization package..."
-if [ ! -d "/tmp/vyos-customization" ]; then
-    git clone --depth 1 https://github.com/hauke-cloud/vyos-customization.git /tmp/vyos-customization
-fi
+# Download vyos-customization package from releases
+echo "Downloading vyos-customization package from GitHub releases..."
+mkdir -p vyos-build/packages
+curl -L -o vyos-build/packages/vyos-customization_1.0.0-1_all.deb \
+    "https://github.com/hauke-cloud/vyos-customization/releases/latest/download/vyos-customization_1.0.0-1_all.deb"
 
-cd /tmp/vyos-customization
-dpkg-buildpackage -us -uc -b || {
-    echo "Package build requires: debhelper devscripts"
-    echo "Install with: sudo apt-get install -y debhelper devscripts"
-    exit 1
-}
-
-# Copy the built .deb to vyos-build/packages/
-echo "Copying package to vyos-build/packages/..."
-mkdir -p $OLDPWD/vyos-build/packages
-cp ../*.deb $OLDPWD/vyos-build/packages/
-ls -lh $OLDPWD/vyos-build/packages/
-
-cd $OLDPWD
+echo "Package downloaded:"
+ls -lh vyos-build/packages/
 
 # Change to vyos-build directory
 cd vyos-build

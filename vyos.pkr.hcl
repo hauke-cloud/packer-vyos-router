@@ -27,7 +27,7 @@ variable "vyos_version" {
 variable "vyos_iso_url" {
   type        = string
   default     = ""
-  description = "VyOS ISO URL. If empty, will be constructed from vyos_version"
+  description = "VyOS ISO URL. If empty, will be constructed from vyos_version. Note: ISOs now include customization version in filename (e.g., vyos-1.5-rolling-VERSION-generic-amd64-custom-v0.0.1.iso)"
 }
 
 variable "server_location" {
@@ -58,7 +58,11 @@ variable "ssh_password" {
 }
 
 locals {
-  iso_url = var.vyos_iso_url != "" ? var.vyos_iso_url : "https://github.com/hauke-cloud/packer-vyos-router/releases/download/v1.5-rolling-${var.vyos_version}/vyos-1.5-rolling-${var.vyos_version}-generic-amd64.iso"
+  # Note: The actual ISO filename includes the customization version
+  # Format: vyos-1.5-rolling-${version}-generic-amd64-custom-${customization_version}.iso
+  # Since customization_version is dynamic, specify the full URL with vyos_iso_url variable
+  # or use the latest release URL
+  iso_url = var.vyos_iso_url != "" ? var.vyos_iso_url : "https://github.com/hauke-cloud/packer-vyos-router/releases/latest/download/vyos-1.5-rolling-${var.vyos_version}-generic-amd64-custom-v0.0.1.iso"
 
   build_labels = {
     "name"                 = "vyos"

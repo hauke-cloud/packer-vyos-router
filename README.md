@@ -35,6 +35,8 @@ packer-vyos-router/
 └── release-artifacts/   # Build artifacts directory
 ```
 
+See [PACKER_TEMPLATE.md](PACKER_TEMPLATE.md) for detailed documentation on the Packer template.
+
 ## Build Customization
 
 This repository includes `build-vyos-image-wrapper`, a wrapper script that extends the official VyOS build process with support for custom APT repositories. This allows you to:

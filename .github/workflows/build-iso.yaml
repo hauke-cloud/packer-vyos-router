@@ -73,38 +73,42 @@ jobs:
           repository: vyos/vyos-build
           path: vyos-build
 
-      - name: Download and prepare vyos-customization package
+      - name: Download vyos-customization package from releases
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Preparing vyos-customization Package"
+          echo "  Downloading vyos-customization Package"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           
-          # Clone vyos-customization repository
-          echo "📦 Cloning vyos-customization repository..."
-          git clone --depth 1 https://github.com/hauke-cloud/vyos-customization.git /tmp/vyos-customization
+          # Get the latest release info from GitHub API
+          echo "📦 Fetching latest vyos-customization release info..."
+          RELEASE_INFO=$(curl -s https://api.github.com/repos/hauke-cloud/vyos-customization/releases/latest)
+          CUSTOMIZATION_VERSION=$(echo "$RELEASE_INFO" | jq -r '.tag_name')
+          DEB_FILE=$(echo "$RELEASE_INFO" | jq -r '.assets[0].name')
+          DOWNLOAD_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[0].browser_download_url')
           
-          # Build the Debian package
-          echo "🔨 Building Debian package..."
-          cd /tmp/vyos-customization
+          echo "  Version: $CUSTOMIZATION_VERSION"
+          echo "  File: $DEB_FILE"
+          echo "  URL: $DOWNLOAD_URL"
+          echo ""
           
-          # Install build dependencies
-          sudo apt-get install -y debhelper devscripts
+          # Create packages directory
+          mkdir -p vyos-build/packages
           
-          # Build the package
-          dpkg-buildpackage -us -uc -b
-          
-          # Copy the built .deb to vyos-build/packages/
-          echo "📋 Copying package to vyos-build/packages/..."
-          mkdir -p $GITHUB_WORKSPACE/vyos-build/packages
-          cp ../*.deb $GITHUB_WORKSPACE/vyos-build/packages/
+          # Download the .deb package
+          echo "📥 Downloading package..."
+          curl -L -o "vyos-build/packages/$DEB_FILE" "$DOWNLOAD_URL"
           
           echo ""
-          echo "✓ Package prepared:"
-          ls -lh $GITHUB_WORKSPACE/vyos-build/packages/
+          echo "✓ Package downloaded:"
+          ls -lh vyos-build/packages/
           echo ""
+          
+          # Export version for use in later steps
+          echo "CUSTOMIZATION_VERSION=$CUSTOMIZATION_VERSION" >> $GITHUB_ENV
+          
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  ✅ Package Ready for ISO Build"
+          echo "  ✅ Package Ready (version $CUSTOMIZATION_VERSION)"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
 
@@ -147,6 +151,12 @@ jobs:
             GENERIC_IMAGE_ISO=$(ls -1 *.iso | head -n1)
             GENERIC_IMAGE_NAME=$(basename "${GENERIC_IMAGE_ISO}" .iso)
           fi
+          
+          # Rename ISO to include customization version
+          NEW_ISO_NAME="${GENERIC_IMAGE_NAME}-custom-${CUSTOMIZATION_VERSION}.iso"
+          mv "${GENERIC_IMAGE_ISO}" "${NEW_ISO_NAME}"
+          GENERIC_IMAGE_ISO="${NEW_ISO_NAME}"
+          GENERIC_IMAGE_NAME=$(basename "${GENERIC_IMAGE_ISO}" .iso)
 
           echo "generic_image_name=${GENERIC_IMAGE_NAME}" >> $GITHUB_OUTPUT
           echo "generic_image_iso=${GENERIC_IMAGE_ISO}" >> $GITHUB_OUTPUT
@@ -187,12 +197,13 @@ jobs:
           
           ## Customizations
           
-          This ISO includes custom configurations from the repository:
-          - Custom default configuration (if present)
-          - Post-installation scripts (if present)
-          - Additional packages and modifications
+          This ISO includes vyos-customization package version ${{ env.CUSTOMIZATION_VERSION }}:
+          - Custom default configuration
+          - Post-installation scripts
+          - Auto-install functionality
+          - Password generation utilities
           
-          See the repository for full customization details.
+          See the [vyos-customization repository](https://github.com/hauke-cloud/vyos-customization) for full details.
           EOF
           
           # Create checksums
@@ -241,9 +252,13 @@ jobs:
             
             ## 🔧 Included Customizations
             
-            This build includes any custom configurations present in the repository:
-            - Default VyOS configuration (`config.boot.default`)
-            - Post-installation scripts (`postinst`)
+            This build includes vyos-customization package **${{ env.CUSTOMIZATION_VERSION }}**:
+            - ✅ Custom default configuration (`config.boot.default`)
+            - ✅ Post-installation scripts (`postinst`)
+            - ✅ Auto-install functionality (`vyos-auto-install`)
+            - ✅ Password generation utilities
+            
+            📦 Package: [vyos-customization ${{ env.CUSTOMIZATION_VERSION }}](https://github.com/hauke-cloud/vyos-customization/releases/tag/${{ env.CUSTOMIZATION_VERSION }})
             
             ## 📖 Documentation
             
