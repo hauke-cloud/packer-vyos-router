@@ -79,47 +79,57 @@ jobs:
           echo "  Downloading vyos-customization Package"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          
+
           # Read version from config file
           echo "📦 Reading vyos-customization version from config..."
           CUSTOMIZATION_VERSION=$(grep -v '^#' .vyos-customization-version | grep -v '^[[:space:]]*$' | head -n1)
-          
+
           if [ -z "$CUSTOMIZATION_VERSION" ]; then
             echo "❌ Error: Could not read version from .vyos-customization-version"
             exit 1
           fi
-          
+
           echo "  Version: $CUSTOMIZATION_VERSION"
           echo ""
-          
-          # Construct download URL
-          DEB_FILE="vyos-customization_1.0.0-1_all.deb"
-          DOWNLOAD_URL="https://github.com/hauke-cloud/vyos-customization/releases/download/${CUSTOMIZATION_VERSION}/${DEB_FILE}"
-          
+
+          # Get release info to find the actual .deb filename
+          echo "📥 Fetching release info..."
+          RELEASE_INFO=$(curl -s "https://api.github.com/repos/hauke-cloud/vyos-customization/releases/tags/${CUSTOMIZATION_VERSION}")
+
+          # Extract .deb file info
+          DEB_FILE=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".deb")) | .name' | head -n1)
+          DOWNLOAD_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".deb")) | .browser_download_url' | head -n1)
+
+          if [ -z "$DEB_FILE" ] || [ "$DEB_FILE" = "null" ]; then
+            echo "❌ Error: Could not find .deb file in release $CUSTOMIZATION_VERSION"
+            echo "   Make sure the release exists and has a .deb asset at:"
+            echo "   https://github.com/hauke-cloud/vyos-customization/releases/tag/$CUSTOMIZATION_VERSION"
+            exit 1
+          fi
+
           echo "  File: $DEB_FILE"
           echo "  URL: $DOWNLOAD_URL"
           echo ""
-          
+
           # Create packages directory
           mkdir -p vyos-build/packages
-          
+
           # Download the .deb package
           echo "📥 Downloading package..."
           if ! curl -L -f -o "vyos-build/packages/$DEB_FILE" "$DOWNLOAD_URL"; then
             echo "❌ Download failed!"
-            echo "   Make sure version $CUSTOMIZATION_VERSION exists at:"
-            echo "   https://github.com/hauke-cloud/vyos-customization/releases/tag/$CUSTOMIZATION_VERSION"
+            echo "   Tried to download from: $DOWNLOAD_URL"
             exit 1
           fi
-          
+
           echo ""
           echo "✓ Package downloaded:"
           ls -lh vyos-build/packages/
           echo ""
-          
+
           # Export version for use in later steps
           echo "CUSTOMIZATION_VERSION=$CUSTOMIZATION_VERSION" >> $GITHUB_ENV
-          
+
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  ✅ Package Ready (version $CUSTOMIZATION_VERSION)"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -164,10 +174,10 @@ jobs:
             GENERIC_IMAGE_ISO=$(ls -1 *.iso | head -n1)
             GENERIC_IMAGE_NAME=$(basename "${GENERIC_IMAGE_ISO}" .iso)
           fi
-          
+
           # Rename ISO to include customization version
           NEW_ISO_NAME="${GENERIC_IMAGE_NAME}-custom-${CUSTOMIZATION_VERSION}.iso"
-          mv "${GENERIC_IMAGE_ISO}" "${NEW_ISO_NAME}"
+          sudo mv "${GENERIC_IMAGE_ISO}" "${NEW_ISO_NAME}"
           GENERIC_IMAGE_ISO="${NEW_ISO_NAME}"
           GENERIC_IMAGE_NAME=$(basename "${GENERIC_IMAGE_ISO}" .iso)
 
@@ -184,41 +194,41 @@ jobs:
           mkdir -p release-artifacts
           cp ${{ steps.build_generic_iso.outputs.generic_image_iso }} release-artifacts/
           cp manifest.json release-artifacts/
-          
+
           # Create README for the release
           cat > release-artifacts/README.md << 'EOF'
           # VyOS Custom ISO Release
-          
+
           ## Files Included
-          
+
           - **ISO File**: `${{ steps.build_generic_iso.outputs.generic_image_iso }}` - The custom VyOS ISO image
           - **manifest.json**: Build manifest with metadata
-          
+
           ## Usage
-          
+
           ### Download the ISO
-          
+
           Download the ISO file from this release and use it to install VyOS.
-          
+
           ## Build Information
-          
+
           - **Version**: ${{ steps.set_env_variables.outputs.build_version }}
           - **Built by**: ${{ steps.set_env_variables.outputs.BUILD_BY }}
           - **Build time**: ${{ steps.set_env_variables.outputs.TIMESTAMP }}
           - **Architecture**: amd64
           - **Type**: rolling release
-          
+
           ## Customizations
-          
+
           This ISO includes vyos-customization package version ${{ env.CUSTOMIZATION_VERSION }}:
           - Custom default configuration
           - Post-installation scripts
           - Auto-install functionality
           - Password generation utilities
-          
+
           See the [vyos-customization repository](https://github.com/hauke-cloud/vyos-customization) for full details.
           EOF
-          
+
           # Create checksums
           cd release-artifacts
           sha256sum ${{ steps.build_generic_iso.outputs.generic_image_iso }} > SHA256SUMS
@@ -242,43 +252,43 @@ jobs:
           name: VyOS ${{ steps.set_env_variables.outputs.build_version }}
           body: |
             # VyOS Custom ISO Build
-            
+
             Automated build of VyOS with custom configurations.
-            
+
             ## 📦 Downloads
-            
+
             - **ISO Image**: Download the `.iso` file below
             - **SHA256SUMS**: Verify download integrity
-            
+
             ## 🚀 Quick Start
-            
+
             1. Download the ISO file
             2. Use with your preferred virtualization platform or cloud provider
-            
+
             ## 📋 Build Details
-            
+
             - **Version**: ${{ steps.set_env_variables.outputs.build_version }}
             - **Built by**: ${{ steps.set_env_variables.outputs.BUILD_BY }}
             - **Build time**: ${{ steps.set_env_variables.outputs.TIMESTAMP }}
             - **Architecture**: amd64 (generic)
             - **Commit**: ${{ github.sha }}
-            
+
             ## 🔧 Included Customizations
-            
+
             This build includes vyos-customization package **${{ env.CUSTOMIZATION_VERSION }}**:
             - ✅ Custom default configuration (`config.boot.default`)
             - ✅ Post-installation scripts (`postinst`)
             - ✅ Auto-install functionality (`vyos-auto-install`)
             - ✅ Password generation utilities
-            
+
             📦 Package: [vyos-customization ${{ env.CUSTOMIZATION_VERSION }}](https://github.com/hauke-cloud/vyos-customization/releases/tag/${{ env.CUSTOMIZATION_VERSION }})
-            
+
             ## 📖 Documentation
-            
+
             See the [repository README](https://github.com/${{ github.repository }}) for detailed usage instructions.
-            
+
             ## ✅ Verification
-            
+
             Verify your download with SHA256:
             ```bash
             sha256sum -c SHA256SUMS
