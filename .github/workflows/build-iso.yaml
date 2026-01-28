@@ -74,18 +74,31 @@ jobs:
           path: vyos-build
 
       - name: Download vyos-customization package from releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  Downloading vyos-customization Package"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           
-          # Get the latest release info from GitHub API
+          # Get the latest release info from GitHub API with authentication
           echo "📦 Fetching latest vyos-customization release info..."
-          RELEASE_INFO=$(curl -s https://api.github.com/repos/hauke-cloud/vyos-customization/releases/latest)
-          CUSTOMIZATION_VERSION=$(echo "$RELEASE_INFO" | jq -r '.tag_name')
-          DEB_FILE=$(echo "$RELEASE_INFO" | jq -r '.assets[0].name')
-          DOWNLOAD_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[0].browser_download_url')
+          RELEASE_INFO=$(curl -s -H "Authorization: token $GH_TOKEN" \
+            https://api.github.com/repos/hauke-cloud/vyos-customization/releases/latest)
+          
+          # Check if we got a valid response
+          if echo "$RELEASE_INFO" | jq -e '.tag_name' > /dev/null 2>&1; then
+            CUSTOMIZATION_VERSION=$(echo "$RELEASE_INFO" | jq -r '.tag_name')
+            DEB_FILE=$(echo "$RELEASE_INFO" | jq -r '.assets[0].name')
+            DOWNLOAD_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[0].browser_download_url')
+          else
+            echo "⚠️  Could not fetch from API, using fallback version"
+            echo "API Response: $RELEASE_INFO"
+            CUSTOMIZATION_VERSION="v0.0.1"
+            DEB_FILE="vyos-customization_1.0.0-1_all.deb"
+            DOWNLOAD_URL="https://github.com/hauke-cloud/vyos-customization/releases/download/v0.0.1/vyos-customization_1.0.0-1_all.deb"
+          fi
           
           echo "  Version: $CUSTOMIZATION_VERSION"
           echo "  File: $DEB_FILE"
@@ -97,7 +110,10 @@ jobs:
           
           # Download the .deb package
           echo "📥 Downloading package..."
-          curl -L -o "vyos-build/packages/$DEB_FILE" "$DOWNLOAD_URL"
+          if ! curl -L -f -o "vyos-build/packages/$DEB_FILE" "$DOWNLOAD_URL"; then
+            echo "❌ Download failed!"
+            exit 1
+          fi
           
           echo ""
           echo "✓ Package downloaded:"
