@@ -19,11 +19,26 @@ if [ ! -d "vyos-build" ]; then
     git clone https://github.com/vyos/vyos-build.git
 fi
 
+# Read vyos-customization version from config file
+echo "Reading vyos-customization version..."
+CUSTOMIZATION_VERSION=$(grep -v '^#' .vyos-customization-version | grep -v '^[[:space:]]*$' | head -n1)
+
+if [ -z "$CUSTOMIZATION_VERSION" ]; then
+    echo "Error: Could not read version from .vyos-customization-version"
+    exit 1
+fi
+
+echo "Using vyos-customization version: $CUSTOMIZATION_VERSION"
+
 # Download vyos-customization package from releases
-echo "Downloading vyos-customization package from GitHub releases..."
+echo "Downloading vyos-customization package..."
 mkdir -p vyos-build/packages
-curl -L -o vyos-build/packages/vyos-customization_1.0.0-1_all.deb \
-    "https://github.com/hauke-cloud/vyos-customization/releases/latest/download/vyos-customization_1.0.0-1_all.deb"
+DEB_FILE="vyos-customization_1.0.0-1_all.deb"
+curl -L -f -o vyos-build/packages/$DEB_FILE \
+    "https://github.com/hauke-cloud/vyos-customization/releases/download/${CUSTOMIZATION_VERSION}/${DEB_FILE}" || {
+    echo "Error: Download failed. Make sure version $CUSTOMIZATION_VERSION exists."
+    exit 1
+}
 
 echo "Package downloaded:"
 ls -lh vyos-build/packages/
