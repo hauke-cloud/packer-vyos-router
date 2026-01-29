@@ -1,4 +1,4 @@
 # VyOS Customization Package Version
 # Update this file when you want to use a different version of vyos-customization
 # Format: tag name from https://github.com/hauke-cloud/vyos-customization/releases
-v0.0.3
+v0.0.4
