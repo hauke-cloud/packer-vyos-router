@@ -19,16 +19,20 @@ if [ ! -d "vyos-build" ]; then
     git clone https://github.com/vyos/vyos-build.git
 fi
 
-# Read vyos-customization version from config file
-echo "Reading vyos-customization version..."
-CUSTOMIZATION_VERSION=$(grep -v '^#' .vyos-customization-version | grep -v '^[[:space:]]*$' | head -n1)
+# Fetch latest vyos-customization version from GitHub
+echo "Fetching latest vyos-customization version from GitHub..."
+CUSTOMIZATION_VERSION=$(./scripts/get_latest_vyos_customization_version.sh)
 
 if [ -z "$CUSTOMIZATION_VERSION" ]; then
-    echo "Error: Could not read version from .vyos-customization-version"
+    echo "Error: Could not fetch latest version from GitHub"
     exit 1
 fi
 
 echo "Using vyos-customization version: $CUSTOMIZATION_VERSION"
+
+# Save version to metadata file for Packer
+echo "$CUSTOMIZATION_VERSION" > customization-version.txt
+echo "Saved version to customization-version.txt"
 
 # Get release info to find the actual .deb filename
 echo "Fetching release info..."

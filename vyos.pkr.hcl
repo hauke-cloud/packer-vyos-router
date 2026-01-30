@@ -26,8 +26,8 @@ variable "vyos_version" {
 
 variable "vyos_customization_version" {
   type        = string
-  default     = "v0.0.3"
-  description = "VyOS customization package version. Note: This is only for reference; the actual ISO filename includes the customization version."
+  default     = ""
+  description = "VyOS customization package version used in the ISO. Should match the version embedded in the ISO filename."
 }
 
 variable "vyos_iso_url" {
@@ -74,12 +74,13 @@ locals {
   iso_source = var.vyos_iso_path
 
   build_labels = {
-    "name"                 = "vyos"
-    "packer.io/build.id"   = "${uuidv4()}"
-    "packer.io/build.time" = "{{timestamp}}"
-    "packer.io/version"    = "{{packer_version}}"
-    "vyos.version"         = var.vyos_version
-    "managed-by"           = "packer"
+    "name"                       = "vyos"
+    "packer.io/build.id"         = "${uuidv4()}"
+    "packer.io/build.time"       = "{{timestamp}}"
+    "packer.io/version"          = "{{packer_version}}"
+    "vyos.version"               = var.vyos_version
+    "vyos.customization.version" = var.vyos_customization_version
+    "managed-by"                 = "packer"
   }
 }
 

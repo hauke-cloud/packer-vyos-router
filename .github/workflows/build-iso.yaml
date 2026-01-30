@@ -80,12 +80,12 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
 
-          # Read version from config file
-          echo "📦 Reading vyos-customization version from config..."
-          CUSTOMIZATION_VERSION=$(grep -v '^#' .vyos-customization-version | grep -v '^[[:space:]]*$' | head -n1)
+          # Fetch latest version from GitHub
+          echo "📦 Fetching latest vyos-customization version from GitHub..."
+          CUSTOMIZATION_VERSION=$(./scripts/get_latest_vyos_customization_version.sh)
 
           if [ -z "$CUSTOMIZATION_VERSION" ]; then
-            echo "❌ Error: Could not read version from .vyos-customization-version"
+            echo "❌ Error: Could not fetch latest version from GitHub"
             exit 1
           fi
 
@@ -129,6 +129,10 @@ jobs:
 
           # Export version for use in later steps
           echo "CUSTOMIZATION_VERSION=$CUSTOMIZATION_VERSION" >> $GITHUB_ENV
+
+          # Save version to metadata file for Packer build
+          echo "$CUSTOMIZATION_VERSION" > vyos-build/customization-version.txt
+          echo "✓ Saved version to customization-version.txt"
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  ✅ Package Ready (version $CUSTOMIZATION_VERSION)"
@@ -188,12 +192,18 @@ jobs:
           sudo chown -R $(id -u):$(id -g) .
           [ -f manifest.json ] && mv manifest.json $GITHUB_WORKSPACE/ || echo '{"artifacts": []}' > $GITHUB_WORKSPACE/manifest.json
           mv ${GENERIC_IMAGE_ISO} $GITHUB_WORKSPACE/
+          
+          # Move customization version metadata
+          if [ -f ../customization-version.txt ]; then
+            mv ../customization-version.txt $GITHUB_WORKSPACE/
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.build_generic_iso.outputs.generic_image_name }}
           path: |
             manifest.json
+            customization-version.txt
             ${{ steps.build_generic_iso.outputs.generic_image_iso }}
           retention-days: 15
           if-no-files-found: error

@@ -16,6 +16,9 @@ inputs:
   server-location:
     description: Hetzner server location (e.g., nbg1, fsn1, hel1)
     required: false
+  vyos-customization-version:
+    description: VyOS customization package version used in the ISO
+    required: false
   trigger-payload:
     description: Payload provided by workflow trigger
     required: false
@@ -60,12 +63,20 @@ runs:
           echo "Using server location: ${{ inputs.server-location }}"
         fi
 
+        # Add customization version if provided
+        customization_version_var=""
+        if [[ -n "${{ inputs.vyos-customization-version }}" ]]; then
+          customization_version_var="-var vyos_customization_version=${{ inputs.vyos-customization-version }}"
+          echo "Using VyOS customization version: ${{ inputs.vyos-customization-version }}"
+        fi
+
         packer validate \
           -var hcloud_token=${{ inputs.token }} \
           -var build_identifier=${{ inputs.build-identifier }} \
           $additional_vars \
           $iso_path_var \
           $location_var \
+          $customization_version_var \
           ${{ inputs.template }}
 
     - name: Run `packer build`
@@ -93,6 +104,13 @@ runs:
           echo "Using server location: ${{ inputs.server-location }}"
         fi
 
+        # Add customization version if provided
+        customization_version_var=""
+        if [[ -n "${{ inputs.vyos-customization-version }}" ]]; then
+          customization_version_var="-var vyos_customization_version=${{ inputs.vyos-customization-version }}"
+          echo "Using VyOS customization version: ${{ inputs.vyos-customization-version }}"
+        fi
+
         packer build \
           -color=false \
           -force \
@@ -102,4 +120,5 @@ runs:
           $additional_vars \
           $iso_path_var \
           $location_var \
+          $customization_version_var \
           ${{ inputs.template }}

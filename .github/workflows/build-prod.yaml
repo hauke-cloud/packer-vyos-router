@@ -46,6 +46,16 @@ jobs:
           echo "iso_path=$ISO_FULL_PATH" >> $GITHUB_OUTPUT
           echo "Using ISO: $ISO_FULL_PATH"
           ls -lh "$ISO_FULL_PATH"
+          
+          # Read customization version from metadata file
+          VERSION_FILE=$(find ./iso -name "customization-version.txt" -type f | head -n1)
+          if [ -n "$VERSION_FILE" ] && [ -f "$VERSION_FILE" ]; then
+            CUSTOMIZATION_VERSION=$(cat "$VERSION_FILE")
+            echo "vyos_customization_version=$CUSTOMIZATION_VERSION" >> $GITHUB_OUTPUT
+            echo "Found customization version: $CUSTOMIZATION_VERSION"
+          else
+            echo "WARNING: No customization-version.txt found, version will not be included in labels"
+          fi
 
       - name: Determine available location for cx23 servers
         id: location
@@ -97,6 +107,7 @@ jobs:
           build-identifier: github-actions-${{ github.repository_id }}-${{ github.run_number }}
           iso-path: ${{ steps.iso_path.outputs.iso_path }}
           server-location: ${{ steps.location.outputs.location }}
+          vyos-customization-version: ${{ steps.iso_path.outputs.vyos_customization_version }}
           trigger-payload: ${{ toJson(github.event.client_payload) }}
 
   cleanup:
