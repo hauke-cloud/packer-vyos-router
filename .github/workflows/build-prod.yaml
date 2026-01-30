@@ -1,16 +1,10 @@
-name: Build PUBLIC
+name: Build PROD
 
 on:
-  schedule:
-    - cron: "0 0 * * *"
-
-  push:
-    branches:
-      - main
-
-  repository_dispatch:
+  workflow_run:
+    workflows: ["Build ISO"]
     types:
-      - trigger-main
+      - completed
 
 jobs:
   build:
@@ -22,7 +16,7 @@ jobs:
       group: public
       cancel-in-progress: false
 
-    if: github.event.schedule != '0 0 * * *'
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout

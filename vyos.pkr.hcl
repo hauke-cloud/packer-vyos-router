@@ -70,15 +70,8 @@ variable "ssh_password" {
 }
 
 locals {
-  # Note: The actual ISO filename includes the customization version
-  # Format: vyos-1.5-rolling-${version}-generic-amd64-custom-${customization_version}.iso
-  # Since customization_version is dynamic, specify the full URL with vyos_iso_url variable
-  # or use the latest release URL
-  iso_url = var.vyos_iso_url != "" ? var.vyos_iso_url : "https://github.com/hauke-cloud/packer-vyos-router/releases/latest/download/vyos-1.5-rolling-${var.vyos_version}-generic-amd64-custom-${var.vyos_customization_version}.iso"
-  
   # Use local ISO path if provided, otherwise use URL
-  use_local_iso = var.vyos_iso_path != ""
-  iso_source    = local.use_local_iso ? var.vyos_iso_path : local.iso_url
+  iso_source = var.vyos_iso_path
 
   build_labels = {
     "name"                 = "vyos"
@@ -122,22 +115,9 @@ build {
 
   source "source.hcloud.vyos" {}
 
-  # Download the custom VyOS ISO that includes vyos-customization package
-  # The ISO must be built with --customization-mirror and --customization-package
-  # to include the vyos-auto-install script and default configuration
-  # If vyos_iso_path is provided, upload the local ISO; otherwise download from URL
   provisioner "file" {
-    source      = local.use_local_iso ? local.iso_source : "/dev/null"
+    source      = local.iso_source
     destination = "/tmp/boot.iso"
-    only        = local.use_local_iso ? ["hcloud.vyos"] : []
-  }
-
-  provisioner "shell" {
-    inline = [
-      "echo 'Downloading VyOS ISO...'",
-      "curl -L -o /tmp/boot.iso '${local.iso_source}'",
-    ]
-    only = local.use_local_iso ? [] : ["hcloud.vyos"]
   }
 
   # Boot into VyOS live ISO
@@ -157,8 +137,8 @@ build {
 
   provisioner "shell" {
     inline = [
-      "/usr/local/bin/install-image",
-      "reboot -f"
+      "sudo /usr/local/bin/install-image",
+      "sudo reboot -f"
     ]
   }
 }

@@ -1,4 +1,4 @@
-name: VyOS nightly build
+name: Build ISO
 
 on:
   push:
