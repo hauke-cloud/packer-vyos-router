@@ -138,7 +138,6 @@ build {
   provisioner "shell" {
     inline = [
       "sudo /usr/local/bin/install-image",
-      "sudo reboot -f"
     ]
   }
 }
