@@ -75,9 +75,9 @@ locals {
 
   build_labels = {
     "name"                 = "vyos"
-    "packer.io/build.id"   = uuidv4()
-    "packer.io/build.time" = formatdate("YYYY-MM-DD'T'hh:mm:ssZ", timestamp())
-    "packer.io/version"    = packer.version
+    "packer.io/build.id"   = "${uuidv4()}"
+    "packer.io/build.time" = "{{timestamp}}"
+    "packer.io/version"    = "{{packer_version}}"
     "vyos.version"         = var.vyos_version
     "managed-by"           = "packer"
   }
