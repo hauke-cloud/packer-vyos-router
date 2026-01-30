@@ -99,9 +99,6 @@ runs:
           -on-error=cleanup \
           -var hcloud_token=${{ inputs.token }} \
           -var build_identifier=${{ inputs.build-identifier }} \
-          -var github_branch=${{ github.ref_name }} \
-          -var version=latest \
-          -var snapshot_name="${SNAPSHOT_NAME}" \
           $additional_vars \
           $iso_path_var \
           $location_var \
