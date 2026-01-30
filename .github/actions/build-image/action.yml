@@ -19,6 +19,9 @@ inputs:
   vyos-customization-version:
     description: VyOS customization package version used in the ISO
     required: false
+  release-version:
+    description: Release version (e.g., 1.0.0). If provided, marks the snapshot as a release with protected=true label.
+    required: false
   trigger-payload:
     description: Payload provided by workflow trigger
     required: false
@@ -70,6 +73,14 @@ runs:
           echo "Using VyOS customization version: ${{ inputs.vyos-customization-version }}"
         fi
 
+        # Add release version if provided
+        release_version_var=""
+        if [[ -n "${{ inputs.release-version }}" ]]; then
+          release_version_var="-var release_version=${{ inputs.release-version }}"
+          echo "Using release version: ${{ inputs.release-version }}"
+          echo "This snapshot will be marked as PROTECTED"
+        fi
+
         packer validate \
           -var hcloud_token=${{ inputs.token }} \
           -var build_identifier=${{ inputs.build-identifier }} \
@@ -77,6 +88,7 @@ runs:
           $iso_path_var \
           $location_var \
           $customization_version_var \
+          $release_version_var \
           ${{ inputs.template }}
 
     - name: Run `packer build`
@@ -111,6 +123,14 @@ runs:
           echo "Using VyOS customization version: ${{ inputs.vyos-customization-version }}"
         fi
 
+        # Add release version if provided
+        release_version_var=""
+        if [[ -n "${{ inputs.release-version }}" ]]; then
+          release_version_var="-var release_version=${{ inputs.release-version }}"
+          echo "Using release version: ${{ inputs.release-version }}"
+          echo "This snapshot will be marked as PROTECTED"
+        fi
+
         packer build \
           -color=false \
           -force \
@@ -121,4 +141,5 @@ runs:
           $iso_path_var \
           $location_var \
           $customization_version_var \
+          $release_version_var \
           ${{ inputs.template }}

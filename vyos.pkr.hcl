@@ -30,6 +30,12 @@ variable "vyos_customization_version" {
   description = "VyOS customization package version used in the ISO. Should match the version embedded in the ISO filename."
 }
 
+variable "release_version" {
+  type        = string
+  default     = ""
+  description = "Release version tag (e.g., 1.0.0). Used to mark official releases in snapshot labels."
+}
+
 variable "vyos_iso_url" {
   type        = string
   default     = ""
@@ -73,7 +79,8 @@ locals {
   # Use local ISO path if provided, otherwise use URL
   iso_source = var.vyos_iso_path
 
-  build_labels = {
+  # Base labels that are always included
+  base_labels = {
     "name"                       = "vyos"
     "packer.io/build.id"         = "${uuidv4()}"
     "packer.io/build.time"       = "{{timestamp}}"
@@ -82,6 +89,15 @@ locals {
     "vyos.customization.version" = var.vyos_customization_version
     "managed-by"                 = "packer"
   }
+
+  # Conditional labels for releases
+  release_labels = var.release_version != "" ? {
+    "release.version" = var.release_version
+    "protected"       = "true"
+  } : {}
+
+  # Merge base and release labels
+  build_labels = merge(local.base_labels, local.release_labels)
 }
 
 source "hcloud" "vyos" {

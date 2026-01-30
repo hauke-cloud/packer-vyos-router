@@ -22,13 +22,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Get workflow run info
+        id: workflow_info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.payload.workflow_run.id
+            });
+            
+            if (artifacts.data.artifacts.length === 0) {
+              core.setFailed('No artifacts found');
+              return;
+            }
+            
+            const artifact = artifacts.data.artifacts[0];
+            core.setOutput('artifact_name', artifact.name);
+            core.setOutput('run_id', context.payload.workflow_run.id);
+            console.log(`Found artifact: ${artifact.name}`);
+
       - name: Download ISO artifact from build-iso workflow
         uses: dawidd6/action-download-artifact@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: build-iso.yaml
-          run_id: ${{ github.event.client_payload.run_id }}
-          name: ${{ github.event.client_payload.iso_artifact_name }}
+          run_id: ${{ steps.workflow_info.outputs.run_id }}
+          name: ${{ steps.workflow_info.outputs.artifact_name }}
           path: ./iso
 
       - name: Prepare ISO path for Packer
@@ -55,6 +76,17 @@ jobs:
             echo "Found customization version: $CUSTOMIZATION_VERSION"
           else
             echo "WARNING: No customization-version.txt found, version will not be included in labels"
+          fi
+          
+          # Read release version from metadata file (for release builds)
+          RELEASE_FILE=$(find ./iso -name "release-version.txt" -type f | head -n1)
+          if [ -n "$RELEASE_FILE" ] && [ -f "$RELEASE_FILE" ]; then
+            RELEASE_VERSION=$(cat "$RELEASE_FILE")
+            echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+            echo "Found release version: $RELEASE_VERSION"
+            echo "This is a RELEASE build - snapshot will be protected"
+          else
+            echo "This is a regular (non-release) build"
           fi
 
       - name: Determine available location for cx23 servers
@@ -108,7 +140,7 @@ jobs:
           iso-path: ${{ steps.iso_path.outputs.iso_path }}
           server-location: ${{ steps.location.outputs.location }}
           vyos-customization-version: ${{ steps.iso_path.outputs.vyos_customization_version }}
-          trigger-payload: ${{ toJson(github.event.client_payload) }}
+          release-version: ${{ steps.iso_path.outputs.release_version }}
 
   cleanup:
     name: Clean up resources from failed run

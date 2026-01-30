@@ -1,0 +1,167 @@
+name: Cleanup Snapshots
+
+on:
+  schedule:
+    - cron: "0 2 * * *"  # Run nightly at 2 AM UTC
+  workflow_dispatch:     # Allow manual trigger
+
+jobs:
+  cleanup:
+    name: Clean up old snapshots
+    environment: prod
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clean up old snapshots
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  VyOS Snapshot Cleanup"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+
+          # Fetch all snapshots with vyos label
+          echo "📥 Fetching VyOS snapshots from Hetzner Cloud..."
+          SNAPSHOTS=$(curl -s -H "Authorization: Bearer $HCLOUD_TOKEN" \
+            "https://api.hetzner.cloud/v1/images?type=snapshot&sort=created:desc" \
+            | jq -r '.images[] | select(.labels.name == "vyos")')
+
+          if [ -z "$SNAPSHOTS" ]; then
+            echo "✓ No VyOS snapshots found"
+            exit 0
+          fi
+
+          # Convert to array for processing
+          SNAPSHOT_IDS=($(echo "$SNAPSHOTS" | jq -r '.id'))
+          SNAPSHOT_COUNT=${#SNAPSHOT_IDS[@]}
+
+          echo "Found $SNAPSHOT_COUNT VyOS snapshot(s)"
+          echo ""
+
+          # Group snapshots by major version
+          declare -A VERSION_SNAPSHOTS
+          declare -A LATEST_BY_VERSION
+          
+          for id in "${SNAPSHOT_IDS[@]}"; do
+            SNAPSHOT=$(echo "$SNAPSHOTS" | jq -r "select(.id == $id)")
+            SNAPSHOT_NAME=$(echo "$SNAPSHOT" | jq -r '.description')
+            CREATED=$(echo "$SNAPSHOT" | jq -r '.created')
+            PROTECTED=$(echo "$SNAPSHOT" | jq -r '.labels.protected // "false"')
+            RELEASE_VERSION=$(echo "$SNAPSHOT" | jq -r '.labels["release.version"] // ""')
+            VYOS_VERSION=$(echo "$SNAPSHOT" | jq -r '.labels["vyos.version"] // ""')
+            
+            echo "  ID: $id"
+            echo "  Name: $SNAPSHOT_NAME"
+            echo "  Created: $CREATED"
+            echo "  Protected: $PROTECTED"
+            echo "  Release Version: ${RELEASE_VERSION:-none}"
+            echo "  VyOS Version: ${VYOS_VERSION:-none}"
+            
+            # Skip protected snapshots
+            if [ "$PROTECTED" == "true" ]; then
+              echo "  → KEEPING (protected=true)"
+              echo ""
+              continue
+            fi
+            
+            # Extract major version from release.version or vyos.version
+            MAJOR_VERSION=""
+            if [ -n "$RELEASE_VERSION" ]; then
+              MAJOR_VERSION=$(echo "$RELEASE_VERSION" | cut -d. -f1)
+            elif [ -n "$VYOS_VERSION" ]; then
+              # For VyOS build versions like 202601261300, use year+month as major version
+              MAJOR_VERSION=$(echo "$VYOS_VERSION" | cut -c1-6)
+            fi
+            
+            if [ -n "$MAJOR_VERSION" ]; then
+              # Track snapshots by major version
+              if [ -z "${VERSION_SNAPSHOTS[$MAJOR_VERSION]}" ]; then
+                VERSION_SNAPSHOTS[$MAJOR_VERSION]="$id"
+                LATEST_BY_VERSION[$MAJOR_VERSION]="$id"
+                echo "  → First snapshot for version $MAJOR_VERSION, marking as latest"
+              else
+                VERSION_SNAPSHOTS[$MAJOR_VERSION]="${VERSION_SNAPSHOTS[$MAJOR_VERSION]} $id"
+                echo "  → Additional snapshot for version $MAJOR_VERSION"
+              fi
+            else
+              echo "  → No version information found"
+            fi
+            
+            echo ""
+          done
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Snapshot Summary by Version"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          for version in "${!VERSION_SNAPSHOTS[@]}"; do
+            SNAPSHOT_LIST=(${VERSION_SNAPSHOTS[$version]})
+            LATEST_ID=${LATEST_BY_VERSION[$version]}
+            echo "Version $version: ${#SNAPSHOT_LIST[@]} snapshot(s)"
+            echo "  Latest: $LATEST_ID (will be kept)"
+            echo ""
+          done
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Deleting Old Snapshots"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+
+          DELETED_COUNT=0
+          KEPT_COUNT=0
+
+          for id in "${SNAPSHOT_IDS[@]}"; do
+            SNAPSHOT=$(echo "$SNAPSHOTS" | jq -r "select(.id == $id)")
+            PROTECTED=$(echo "$SNAPSHOT" | jq -r '.labels.protected // "false"')
+            SNAPSHOT_NAME=$(echo "$SNAPSHOT" | jq -r '.description')
+            
+            # Skip if protected
+            if [ "$PROTECTED" == "true" ]; then
+              ((KEPT_COUNT++))
+              continue
+            fi
+            
+            # Check if this is the latest for its version
+            IS_LATEST=false
+            for version in "${!LATEST_BY_VERSION[@]}"; do
+              if [ "${LATEST_BY_VERSION[$version]}" == "$id" ]; then
+                IS_LATEST=true
+                break
+              fi
+            done
+            
+            if [ "$IS_LATEST" == "true" ]; then
+              echo "✓ KEEPING: $SNAPSHOT_NAME (ID: $id) - latest for version"
+              ((KEPT_COUNT++))
+            else
+              echo "🗑️  DELETING: $SNAPSHOT_NAME (ID: $id)"
+              
+              DELETE_RESPONSE=$(curl -s -w "\n%{http_code}" -X DELETE \
+                -H "Authorization: Bearer $HCLOUD_TOKEN" \
+                "https://api.hetzner.cloud/v1/images/$id")
+              
+              HTTP_CODE=$(echo "$DELETE_RESPONSE" | tail -n1)
+              
+              if [ "$HTTP_CODE" == "204" ]; then
+                echo "   ✓ Deleted successfully"
+                ((DELETED_COUNT++))
+              else
+                echo "   ✗ Failed to delete (HTTP $HTTP_CODE)"
+                echo "$DELETE_RESPONSE" | head -n-1
+              fi
+            fi
+          done
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Cleanup Complete"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "  Snapshots kept: $KEPT_COUNT"
+          echo "  Snapshots deleted: $DELETED_COUNT"
+          echo ""

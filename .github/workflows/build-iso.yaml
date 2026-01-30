@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*.*.*'
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
@@ -33,10 +35,31 @@ jobs:
       TIMESTAMP: ${{ steps.set_env_variables.outputs.TIMESTAMP }}
       generic_image_iso: ${{ steps.build_generic_iso.outputs.generic_image_iso }}
       generic_image_name: ${{ steps.build_generic_iso.outputs.generic_image_name }}
+      customization_version: ${{ steps.build_generic_iso.outputs.customization_version }}
+      is_release: ${{ steps.check_release.outputs.is_release }}
+      release_version: ${{ steps.check_release.outputs.release_version }}
+      release_tag: ${{ steps.check_release.outputs.release_tag }}
 
     steps:
       ### Initialization ###
       - uses: actions/checkout@v4
+
+      - name: Check if this is a release build
+        id: check_release
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "is_release=true" >> $GITHUB_OUTPUT
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG#v}"
+            echo "release_tag=$TAG" >> $GITHUB_OUTPUT
+            echo "release_version=$VERSION" >> $GITHUB_OUTPUT
+            echo "This is a RELEASE build: $TAG (version: $VERSION)"
+          else
+            echo "is_release=false" >> $GITHUB_OUTPUT
+            echo "release_tag=" >> $GITHUB_OUTPUT
+            echo "release_version=" >> $GITHUB_OUTPUT
+            echo "This is a regular build"
+          fi
 
       - name: "Initialization: set env variables"
         id: set_env_variables
@@ -133,6 +156,12 @@ jobs:
           # Save version to metadata file for Packer build
           echo "$CUSTOMIZATION_VERSION" > vyos-build/customization-version.txt
           echo "✓ Saved version to customization-version.txt"
+          
+          # Save release version if this is a release build
+          if [ "${{ steps.check_release.outputs.is_release }}" == "true" ]; then
+            echo "${{ steps.check_release.outputs.release_version }}" > vyos-build/release-version.txt
+            echo "✓ Saved release version to release-version.txt"
+          fi
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "  ✅ Package Ready (version $CUSTOMIZATION_VERSION)"
@@ -187,6 +216,7 @@ jobs:
 
           echo "generic_image_name=${GENERIC_IMAGE_NAME}" >> $GITHUB_OUTPUT
           echo "generic_image_iso=${GENERIC_IMAGE_ISO}" >> $GITHUB_OUTPUT
+          echo "customization_version=${CUSTOMIZATION_VERSION}" >> $GITHUB_OUTPUT
 
           # Fix ownership and move artifacts to workspace
           sudo chown -R $(id -u):$(id -g) .
@@ -197,6 +227,11 @@ jobs:
           if [ -f ../customization-version.txt ]; then
             mv ../customization-version.txt $GITHUB_WORKSPACE/
           fi
+          
+          # Move release version metadata if exists
+          if [ -f ../release-version.txt ]; then
+            mv ../release-version.txt $GITHUB_WORKSPACE/
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
@@ -204,23 +239,52 @@ jobs:
           path: |
             manifest.json
             customization-version.txt
+            release-version.txt
             ${{ steps.build_generic_iso.outputs.generic_image_iso }}
           retention-days: 15
           if-no-files-found: error
 
-      - name: Trigger build-prod workflow
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        uses: peter-evans/repository-dispatch@v3
+      - name: Create GitHub Release
+        if: steps.check_release.outputs.is_release == 'true'
+        uses: softprops/action-gh-release@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          event-type: trigger-main
-          client-payload: |
-            {
-              "iso_artifact_name": "${{ steps.build_generic_iso.outputs.generic_image_name }}",
-              "iso_file_name": "${{ steps.build_generic_iso.outputs.generic_image_iso }}",
-              "build_version": "${{ steps.set_env_variables.outputs.build_version }}",
-              "build_by": "${{ steps.set_env_variables.outputs.BUILD_BY }}",
-              "timestamp": "${{ steps.set_env_variables.outputs.TIMESTAMP }}",
-              "customization_version": "${{ env.CUSTOMIZATION_VERSION }}",
-              "run_id": "${{ github.run_id }}"
-            }
+          tag_name: ${{ steps.check_release.outputs.release_tag }}
+          name: Release ${{ steps.check_release.outputs.release_tag }}
+          body: |
+            # VyOS Router Release ${{ steps.check_release.outputs.release_tag }}
+            
+            ## Build Information
+            
+            - **Release Version**: ${{ steps.check_release.outputs.release_version }}
+            - **VyOS Build Version**: ${{ steps.set_env_variables.outputs.build_version }}
+            - **VyOS Customization Version**: ${{ steps.build_generic_iso.outputs.customization_version }}
+            - **Build Date**: ${{ steps.set_env_variables.outputs.TIMESTAMP }}
+            - **Built By**: ${{ steps.set_env_variables.outputs.BUILD_BY }}
+            
+            ## ISO Image
+            
+            - **Filename**: ${{ steps.build_generic_iso.outputs.generic_image_iso }}
+            
+            ## Installation
+            
+            Download the ISO image and use it with the Packer template or deploy manually.
+            
+            For Packer builds with this release:
+            ```bash
+            packer build \
+              -var="vyos_iso_path=./${{ steps.build_generic_iso.outputs.generic_image_iso }}" \
+              -var="vyos_customization_version=${{ steps.build_generic_iso.outputs.customization_version }}" \
+              -var="release_version=${{ steps.check_release.outputs.release_version }}" \
+              vyos.pkr.hcl
+            ```
+            
+            ## Customizations
+            
+            This release includes customizations from [vyos-customization ${{ steps.build_generic_iso.outputs.customization_version }}](https://github.com/hauke-cloud/vyos-customization/releases/tag/${{ steps.build_generic_iso.outputs.customization_version }}).
+          draft: false
+          prerelease: false
+          files: |
+            ${{ steps.build_generic_iso.outputs.generic_image_iso }}
+            customization-version.txt
+            release-version.txt
+            manifest.json
