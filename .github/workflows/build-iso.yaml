@@ -189,52 +189,6 @@ jobs:
           [ -f manifest.json ] && mv manifest.json $GITHUB_WORKSPACE/ || echo '{"artifacts": []}' > $GITHUB_WORKSPACE/manifest.json
           mv ${GENERIC_IMAGE_ISO} $GITHUB_WORKSPACE/
 
-      - name: Prepare release artifacts
-        run: |
-          mkdir -p release-artifacts
-          cp ${{ steps.build_generic_iso.outputs.generic_image_iso }} release-artifacts/
-          cp manifest.json release-artifacts/
-
-          # Create README for the release
-          cat > release-artifacts/README.md << 'EOF'
-          # VyOS Custom ISO Release
-
-          ## Files Included
-
-          - **ISO File**: `${{ steps.build_generic_iso.outputs.generic_image_iso }}` - The custom VyOS ISO image
-          - **manifest.json**: Build manifest with metadata
-
-          ## Usage
-
-          ### Download the ISO
-
-          Download the ISO file from this release and use it to install VyOS.
-
-          ## Build Information
-
-          - **Version**: ${{ steps.set_env_variables.outputs.build_version }}
-          - **Built by**: ${{ steps.set_env_variables.outputs.BUILD_BY }}
-          - **Build time**: ${{ steps.set_env_variables.outputs.TIMESTAMP }}
-          - **Architecture**: amd64
-          - **Type**: rolling release
-
-          ## Customizations
-
-          This ISO includes vyos-customization package version ${{ env.CUSTOMIZATION_VERSION }}:
-          - Custom default configuration
-          - Post-installation scripts
-          - Auto-install functionality
-          - Password generation utilities
-
-          See the [vyos-customization repository](https://github.com/hauke-cloud/vyos-customization) for full details.
-          EOF
-
-          # Create checksums
-          cd release-artifacts
-          sha256sum ${{ steps.build_generic_iso.outputs.generic_image_iso }} > SHA256SUMS
-          sha256sum manifest.json >> SHA256SUMS
-          cd ..
-
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.build_generic_iso.outputs.generic_image_name }}
@@ -244,61 +198,19 @@ jobs:
           retention-days: 15
           if-no-files-found: error
 
-      - name: Create Release
+      - name: Trigger build-prod workflow
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        uses: softprops/action-gh-release@v1
+        uses: peter-evans/repository-dispatch@v3
         with:
-          tag_name: v${{ steps.set_env_variables.outputs.build_version }}
-          name: VyOS ${{ steps.set_env_variables.outputs.build_version }}
-          body: |
-            # VyOS Custom ISO Build
-
-            Automated build of VyOS with custom configurations.
-
-            ## 📦 Downloads
-
-            - **ISO Image**: Download the `.iso` file below
-            - **SHA256SUMS**: Verify download integrity
-
-            ## 🚀 Quick Start
-
-            1. Download the ISO file
-            2. Use with your preferred virtualization platform or cloud provider
-
-            ## 📋 Build Details
-
-            - **Version**: ${{ steps.set_env_variables.outputs.build_version }}
-            - **Built by**: ${{ steps.set_env_variables.outputs.BUILD_BY }}
-            - **Build time**: ${{ steps.set_env_variables.outputs.TIMESTAMP }}
-            - **Architecture**: amd64 (generic)
-            - **Commit**: ${{ github.sha }}
-
-            ## 🔧 Included Customizations
-
-            This build includes vyos-customization package **${{ env.CUSTOMIZATION_VERSION }}**:
-            - ✅ Custom default configuration (`config.boot.default`)
-            - ✅ Post-installation scripts (`postinst`)
-            - ✅ Auto-install functionality (`vyos-auto-install`)
-            - ✅ Password generation utilities
-
-            📦 Package: [vyos-customization ${{ env.CUSTOMIZATION_VERSION }}](https://github.com/hauke-cloud/vyos-customization/releases/tag/${{ env.CUSTOMIZATION_VERSION }})
-
-            ## 📖 Documentation
-
-            See the [repository README](https://github.com/${{ github.repository }}) for detailed usage instructions.
-
-            ## ✅ Verification
-
-            Verify your download with SHA256:
-            ```bash
-            sha256sum -c SHA256SUMS
-            ```
-          files: |
-            release-artifacts/${{ steps.build_generic_iso.outputs.generic_image_iso }}
-            release-artifacts/manifest.json
-            release-artifacts/README.md
-            release-artifacts/SHA256SUMS
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: trigger-main
+          client-payload: |
+            {
+              "iso_artifact_name": "${{ steps.build_generic_iso.outputs.generic_image_name }}",
+              "iso_file_name": "${{ steps.build_generic_iso.outputs.generic_image_iso }}",
+              "build_version": "${{ steps.set_env_variables.outputs.build_version }}",
+              "build_by": "${{ steps.set_env_variables.outputs.BUILD_BY }}",
+              "timestamp": "${{ steps.set_env_variables.outputs.TIMESTAMP }}",
+              "customization_version": "${{ env.CUSTOMIZATION_VERSION }}",
+              "run_id": "${{ github.run_id }}"
+            }

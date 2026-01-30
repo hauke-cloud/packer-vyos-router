@@ -30,15 +30,27 @@ fi
 
 echo "Using vyos-customization version: $CUSTOMIZATION_VERSION"
 
-# Download vyos-customization package from releases
-echo "Downloading vyos-customization package..."
-mkdir -p vyos-build/packages
-DEB_FILE="vyos-customization_1.0.0-1_all.deb"
-curl -L -f -o vyos-build/packages/$DEB_FILE \
-    "https://github.com/hauke-cloud/vyos-customization/releases/download/${CUSTOMIZATION_VERSION}/${DEB_FILE}" || {
-    echo "Error: Download failed. Make sure version $CUSTOMIZATION_VERSION exists."
+# Get release info to find the actual .deb filename
+echo "Fetching release info..."
+RELEASE_INFO=$(curl -s "https://api.github.com/repos/hauke-cloud/vyos-customization/releases/tags/${CUSTOMIZATION_VERSION}")
+
+DEB_FILE=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".deb")) | .name' | head -n1)
+DOWNLOAD_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".deb")) | .browser_download_url' | head -n1)
+
+if [ -z "$DEB_FILE" ] || [ "$DEB_FILE" = "null" ]; then
+    echo "Error: Could not find .deb file in release $CUSTOMIZATION_VERSION"
+    echo "Make sure the release exists at:"
+    echo "https://github.com/hauke-cloud/vyos-customization/releases/tag/$CUSTOMIZATION_VERSION"
     exit 1
-}
+fi
+
+# Download vyos-customization package
+echo "Downloading $DEB_FILE..."
+mkdir -p vyos-build/packages
+if ! curl -L -f -o vyos-build/packages/$DEB_FILE "$DOWNLOAD_URL"; then
+    echo "Error: Download failed from $DOWNLOAD_URL"
+    exit 1
+fi
 
 echo "Package downloaded:"
 ls -lh vyos-build/packages/

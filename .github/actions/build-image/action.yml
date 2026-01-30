@@ -10,6 +10,9 @@ inputs:
   build-identifier:
     description: Content of build label attached to every instance and ssh-key for identifying resources (for cleanup)
     required: true
+  iso-path:
+    description: Path to local ISO file
+    required: false
   trigger-payload:
     description: Payload provided by workflow trigger
     required: false
@@ -47,11 +50,19 @@ runs:
           echo "Adding additional settings: ${additional_vars}"
         fi
 
+        # Add ISO path if provided
+        iso_path_var=""
+        if [[ -n "${{ inputs.iso-path }}" ]]; then
+          iso_path_var="-var vyos_iso_path=${{ inputs.iso-path }}"
+          echo "Using local ISO: ${{ inputs.iso-path }}"
+        fi
+
         packer validate \
           -var hcloud_token=${{ inputs.token }} \
           -var build_identifier=${{ inputs.build-identifier }} \
           -var snapshot_name="${SNAPSHOT_NAME}" \
           $additional_vars \
+          $iso_path_var \
           ${{ inputs.template }}
 
     - name: Run `packer build`
@@ -65,6 +76,13 @@ runs:
           echo "Adding additional settings: ${additional_vars}"
         fi
 
+        # Add ISO path if provided
+        iso_path_var=""
+        if [[ -n "${{ inputs.iso-path }}" ]]; then
+          iso_path_var="-var vyos_iso_path=${{ inputs.iso-path }}"
+          echo "Using local ISO: ${{ inputs.iso-path }}"
+        fi
+
         packer build \
           -color=false \
           -force \
@@ -75,4 +93,5 @@ runs:
           -var version=latest \
           -var snapshot_name="${SNAPSHOT_NAME}" \
           $additional_vars \
+          $iso_path_var \
           ${{ inputs.template }}
