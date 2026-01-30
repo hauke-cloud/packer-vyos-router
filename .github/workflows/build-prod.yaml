@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     name: Build image
-    environment: public
+    environment: prod
     runs-on: ubuntu-latest
 
     concurrency:
@@ -31,14 +31,6 @@ jobs:
           name: ${{ github.event.client_payload.iso_artifact_name }}
           path: ./iso
 
-      - name: Setup `butane`
-        shell: bash
-        run: |
-          if [[ ! -f /usr/local/bin/butane ]]; then
-            curl -L https://github.com/coreos/butane/releases/download/v0.21.0/butane-x86_64-unknown-linux-gnu -o /usr/local/bin/butane
-            chmod +x /usr/local/bin/butane
-          fi
-
       - name: Prepare ISO path for Packer
         id: iso_path
         shell: bash
@@ -49,6 +41,48 @@ jobs:
           echo "Using ISO: $ISO_FULL_PATH"
           ls -lh "$ISO_FULL_PATH"
 
+      - name: Determine available location for cx23 servers
+        id: location
+        shell: bash
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          echo "Querying Hetzner API for cx23 server availability..."
+          
+          # Get server type details
+          SERVER_TYPE_DATA=$(curl -s -H "Authorization: Bearer $HCLOUD_TOKEN" \
+            "https://api.hetzner.cloud/v1/server_types?name=cx23")
+          
+          # Extract available locations for cx23
+          AVAILABLE_LOCATIONS=$(echo "$SERVER_TYPE_DATA" | jq -r '.server_types[0].prices[] | select(.location != null) | .location' | sort)
+          
+          if [ -z "$AVAILABLE_LOCATIONS" ]; then
+            echo "Warning: Could not determine cx23 availability, falling back to default location (nbg1)"
+            echo "location=nbg1" >> $GITHUB_OUTPUT
+          else
+            # Prefer locations in this order: nbg1, fsn1, hel1, ash, hil
+            PREFERRED_ORDER=("nbg1" "fsn1" "hel1" "ash" "hil")
+            SELECTED_LOCATION=""
+            
+            for preferred in "${PREFERRED_ORDER[@]}"; do
+              if echo "$AVAILABLE_LOCATIONS" | grep -q "^${preferred}$"; then
+                SELECTED_LOCATION="$preferred"
+                break
+              fi
+            done
+            
+            # If no preferred location found, use first available
+            if [ -z "$SELECTED_LOCATION" ]; then
+              SELECTED_LOCATION=$(echo "$AVAILABLE_LOCATIONS" | head -n1)
+            fi
+            
+            echo "Available locations for cx23:"
+            echo "$AVAILABLE_LOCATIONS"
+            echo ""
+            echo "Selected location: $SELECTED_LOCATION"
+            echo "location=$SELECTED_LOCATION" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build image
         uses: ./.github/actions/build-image
         with:
@@ -56,6 +90,7 @@ jobs:
           token: ${{ secrets.HCLOUD_TOKEN }}
           build-identifier: github-actions-${{ github.repository_id }}-${{ github.run_number }}
           iso-path: ${{ steps.iso_path.outputs.iso_path }}
+          server-location: ${{ steps.location.outputs.location }}
           trigger-payload: ${{ toJson(github.event.client_payload) }}
 
   cleanup:

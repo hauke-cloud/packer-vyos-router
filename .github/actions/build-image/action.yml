@@ -13,6 +13,9 @@ inputs:
   iso-path:
     description: Path to local ISO file
     required: false
+  server-location:
+    description: Hetzner server location (e.g., nbg1, fsn1, hel1)
+    required: false
   trigger-payload:
     description: Payload provided by workflow trigger
     required: false
@@ -57,12 +60,20 @@ runs:
           echo "Using local ISO: ${{ inputs.iso-path }}"
         fi
 
+        # Add server location if provided
+        location_var=""
+        if [[ -n "${{ inputs.server-location }}" ]]; then
+          location_var="-var server_location=${{ inputs.server-location }}"
+          echo "Using server location: ${{ inputs.server-location }}"
+        fi
+
         packer validate \
           -var hcloud_token=${{ inputs.token }} \
           -var build_identifier=${{ inputs.build-identifier }} \
           -var snapshot_name="${SNAPSHOT_NAME}" \
           $additional_vars \
           $iso_path_var \
+          $location_var \
           ${{ inputs.template }}
 
     - name: Run `packer build`
@@ -83,6 +94,13 @@ runs:
           echo "Using local ISO: ${{ inputs.iso-path }}"
         fi
 
+        # Add server location if provided
+        location_var=""
+        if [[ -n "${{ inputs.server-location }}" ]]; then
+          location_var="-var server_location=${{ inputs.server-location }}"
+          echo "Using server location: ${{ inputs.server-location }}"
+        fi
+
         packer build \
           -color=false \
           -force \
@@ -94,4 +112,5 @@ runs:
           -var snapshot_name="${SNAPSHOT_NAME}" \
           $additional_vars \
           $iso_path_var \
+          $location_var \
           ${{ inputs.template }}
