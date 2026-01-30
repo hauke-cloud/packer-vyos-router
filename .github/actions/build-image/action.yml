@@ -22,13 +22,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Prepare
-      shell: bash
-      run: |
-        image_name="$(echo $GITHUB_REPOSITORY | cut -d/ -f2 | sed -E 's/packer-//g')"
-        image_tag=${{ github.ref_name }}
-        echo "SNAPSHOT_NAME=$image_name-$image_tag" >> $GITHUB_ENV
-
     - name: Setup `packer`
       uses: hashicorp/setup-packer@main
       id: setup
@@ -70,7 +63,6 @@ runs:
         packer validate \
           -var hcloud_token=${{ inputs.token }} \
           -var build_identifier=${{ inputs.build-identifier }} \
-          -var snapshot_name="${SNAPSHOT_NAME}" \
           $additional_vars \
           $iso_path_var \
           $location_var \
