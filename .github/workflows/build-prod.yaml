@@ -35,7 +35,13 @@ jobs:
         id: iso_path
         shell: bash
         run: |
-          ISO_FILE=$(ls -1 ./iso/*.iso | head -n1)
+          # The artifact extracts to iso/<artifact-name>/<iso-file>.iso
+          ISO_FILE=$(find ./iso -name "*.iso" -type f | head -n1)
+          if [ -z "$ISO_FILE" ]; then
+            echo "ERROR: No ISO file found in ./iso directory"
+            ls -R ./iso
+            exit 1
+          fi
           ISO_FULL_PATH=$(realpath "$ISO_FILE")
           echo "iso_path=$ISO_FULL_PATH" >> $GITHUB_OUTPUT
           echo "Using ISO: $ISO_FULL_PATH"
