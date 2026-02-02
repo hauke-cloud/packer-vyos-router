@@ -55,7 +55,7 @@ menuentry "VyOS ISO Boot" {
          insmod iso9660
          search --no-floppy --fs-uuid --set=root ${BOOTUUID}
          loopback loop \$isofile
-         linux (loop)/live/vmlinuz fromiso=/dev/${FROMISO_PATH} boot=live toram username=vyos hostname=vyos
+         linux (loop)/live/vmlinuz fromiso=/dev/${FROMISO_PATH} boot=live toram username=vyos hostname=vyos console=tty0 console=ttyS0,115200 nomodeset
          initrd (loop)/live/initrd.img
 }
 GRUBENTRY
