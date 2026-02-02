@@ -16,6 +16,9 @@ inputs:
   server-location:
     description: Hetzner server location (e.g., nbg1, fsn1, hel1)
     required: false
+  server-type:
+    description: Hetzner server type (e.g., cx23, cx33, cx43)
+    required: false
   vyos-customization-version:
     description: VyOS customization package version used in the ISO
     required: false
@@ -66,6 +69,13 @@ runs:
           echo "Using server location: ${{ inputs.server-location }}"
         fi
 
+        # Add server type if provided
+        server_type_var=""
+        if [[ -n "${{ inputs.server-type }}" ]]; then
+          server_type_var="-var server_type=${{ inputs.server-type }}"
+          echo "Using server type: ${{ inputs.server-type }}"
+        fi
+
         # Add customization version if provided
         customization_version_var=""
         if [[ -n "${{ inputs.vyos-customization-version }}" ]]; then
@@ -87,6 +97,7 @@ runs:
           $additional_vars \
           $iso_path_var \
           $location_var \
+          $server_type_var \
           $customization_version_var \
           $release_version_var \
           ${{ inputs.template }}
@@ -116,6 +127,13 @@ runs:
           echo "Using server location: ${{ inputs.server-location }}"
         fi
 
+        # Add server type if provided
+        server_type_var=""
+        if [[ -n "${{ inputs.server-type }}" ]]; then
+          server_type_var="-var server_type=${{ inputs.server-type }}"
+          echo "Using server type: ${{ inputs.server-type }}"
+        fi
+
         # Add customization version if provided
         customization_version_var=""
         if [[ -n "${{ inputs.vyos-customization-version }}" ]]; then
@@ -140,6 +158,7 @@ runs:
           $additional_vars \
           $iso_path_var \
           $location_var \
+          $server_type_var \
           $customization_version_var \
           $release_version_var \
           ${{ inputs.template }}

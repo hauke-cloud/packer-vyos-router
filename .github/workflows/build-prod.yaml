@@ -89,47 +89,13 @@ jobs:
             echo "This is a regular (non-release) build"
           fi
 
-      - name: Determine available location for cx23 servers
+      - name: Determine available location and server type
         id: location
-        shell: bash
-        env:
-          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
-        run: |
-          echo "Querying Hetzner API for cx23 server availability..."
-          
-          # Get server type details
-          SERVER_TYPE_DATA=$(curl -s -H "Authorization: Bearer $HCLOUD_TOKEN" \
-            "https://api.hetzner.cloud/v1/server_types?name=cx23")
-          
-          # Extract available locations for cx23
-          AVAILABLE_LOCATIONS=$(echo "$SERVER_TYPE_DATA" | jq -r '.server_types[0].prices[] | select(.location != null) | .location' | sort)
-          
-          if [ -z "$AVAILABLE_LOCATIONS" ]; then
-            echo "Warning: Could not determine cx23 availability, falling back to default location (nbg1)"
-            echo "location=nbg1" >> $GITHUB_OUTPUT
-          else
-            # Prefer locations in this order: nbg1, fsn1, hel1, ash, hil
-            PREFERRED_ORDER=("nbg1" "fsn1" "hel1" "ash" "hil")
-            SELECTED_LOCATION=""
-            
-            for preferred in "${PREFERRED_ORDER[@]}"; do
-              if echo "$AVAILABLE_LOCATIONS" | grep -q "^${preferred}$"; then
-                SELECTED_LOCATION="$preferred"
-                break
-              fi
-            done
-            
-            # If no preferred location found, use first available
-            if [ -z "$SELECTED_LOCATION" ]; then
-              SELECTED_LOCATION=$(echo "$AVAILABLE_LOCATIONS" | head -n1)
-            fi
-            
-            echo "Available locations for cx23:"
-            echo "$AVAILABLE_LOCATIONS"
-            echo ""
-            echo "Selected location: $SELECTED_LOCATION"
-            echo "location=$SELECTED_LOCATION" >> $GITHUB_OUTPUT
-          fi
+        uses: ./.github/actions/find-server-location
+        with:
+          token: ${{ secrets.HCLOUD_TOKEN }}
+          server-types: "cx23,cx33,cx43"
+          preferred-locations: "nbg1,fsn1,hel1,ash,hil"
 
       - name: Build image
         uses: ./.github/actions/build-image
@@ -139,6 +105,7 @@ jobs:
           build-identifier: github-actions-${{ github.repository_id }}-${{ github.run_number }}
           iso-path: ${{ steps.iso_path.outputs.iso_path }}
           server-location: ${{ steps.location.outputs.location }}
+          server-type: ${{ steps.location.outputs.server-type }}
           vyos-customization-version: ${{ steps.iso_path.outputs.vyos_customization_version }}
           release-version: ${{ steps.iso_path.outputs.release_version }}
 

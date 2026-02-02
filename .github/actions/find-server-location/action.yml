@@ -1,0 +1,110 @@
+name: Find Available Server Location
+description: Determines available location for Hetzner cloud server types in priority order
+inputs:
+  token:
+    description: Hetzner Cloud API token
+    required: true
+  server-types:
+    description: Comma-separated list of server types in priority order (e.g., "cx23,cx33,cx43")
+    required: false
+    default: "cx23,cx33,cx43"
+  preferred-locations:
+    description: Comma-separated list of preferred locations in priority order (e.g., "nbg1,fsn1,hel1,ash,hil")
+    required: false
+    default: "nbg1,fsn1,hel1,ash,hil"
+outputs:
+  location:
+    description: Selected location for the server
+    value: ${{ steps.find-location.outputs.location }}
+  server-type:
+    description: Selected server type that is available
+    value: ${{ steps.find-location.outputs.server-type }}
+runs:
+  using: composite
+  steps:
+    - name: Find available location and server type
+      id: find-location
+      shell: bash
+      env:
+        HCLOUD_TOKEN: ${{ inputs.token }}
+        SERVER_TYPES: ${{ inputs.server-types }}
+        PREFERRED_LOCATIONS: ${{ inputs.preferred-locations }}
+      run: |
+        echo "Querying Hetzner API for server availability..."
+        echo "Server types (priority): $SERVER_TYPES"
+        echo "Preferred locations (priority): $PREFERRED_LOCATIONS"
+        echo ""
+
+        # Convert comma-separated strings to arrays
+        IFS=',' read -ra SERVER_TYPE_ARRAY <<< "$SERVER_TYPES"
+        IFS=',' read -ra PREFERRED_LOC_ARRAY <<< "$PREFERRED_LOCATIONS"
+
+        SELECTED_LOCATION=""
+        SELECTED_SERVER_TYPE=""
+
+        # Try each server type in priority order
+        for server_type in "${SERVER_TYPE_ARRAY[@]}"; do
+          server_type=$(echo "$server_type" | xargs) # trim whitespace
+          echo "Checking availability for server type: $server_type"
+
+          # Get server type details from Hetzner API
+          SERVER_TYPE_DATA=$(curl -s -H "Authorization: Bearer $HCLOUD_TOKEN" \
+            "https://api.hetzner.cloud/v1/server_types?name=$server_type")
+
+          # Check if server type exists
+          SERVER_COUNT=$(echo "$SERVER_TYPE_DATA" | jq -r '.server_types | length')
+          if [ "$SERVER_COUNT" -eq "0" ]; then
+            echo "  Server type '$server_type' not found, skipping..."
+            continue
+          fi
+
+          # Extract available locations for this server type
+          AVAILABLE_LOCATIONS=$(echo "$SERVER_TYPE_DATA" | jq -r '.server_types[0].prices[] | select(.location != null) | .location' | sort)
+
+          if [ -z "$AVAILABLE_LOCATIONS" ]; then
+            echo "  No locations available for $server_type"
+            continue
+          fi
+
+          echo "  Available locations for $server_type:"
+          echo "$AVAILABLE_LOCATIONS" | sed 's/^/    /'
+
+          # Try to find a preferred location that's available
+          for preferred in "${PREFERRED_LOC_ARRAY[@]}"; do
+            preferred=$(echo "$preferred" | xargs) # trim whitespace
+            if echo "$AVAILABLE_LOCATIONS" | grep -q "^${preferred}$"; then
+              SELECTED_LOCATION="$preferred"
+              SELECTED_SERVER_TYPE="$server_type"
+              echo ""
+              echo "✓ Found match!"
+              echo "  Server type: $SELECTED_SERVER_TYPE"
+              echo "  Location: $SELECTED_LOCATION"
+              break 2
+            fi
+          done
+
+          # If no preferred location found, use first available for this server type
+          if [ -z "$SELECTED_LOCATION" ]; then
+            SELECTED_LOCATION=$(echo "$AVAILABLE_LOCATIONS" | head -n1)
+            SELECTED_SERVER_TYPE="$server_type"
+            echo ""
+            echo "✓ No preferred location found, using first available"
+            echo "  Server type: $SELECTED_SERVER_TYPE"
+            echo "  Location: $SELECTED_LOCATION"
+            break
+          fi
+        done
+
+        # Fallback if nothing was found
+        if [ -z "$SELECTED_LOCATION" ]; then
+          echo ""
+          echo "Warning: Could not determine availability for any server type, falling back to defaults"
+          SELECTED_SERVER_TYPE="${SERVER_TYPE_ARRAY[0]}"
+          SELECTED_LOCATION="${PREFERRED_LOC_ARRAY[0]}"
+          echo "  Server type: $SELECTED_SERVER_TYPE (fallback)"
+          echo "  Location: $SELECTED_LOCATION (fallback)"
+        fi
+
+        echo ""
+        echo "location=$SELECTED_LOCATION" >> $GITHUB_OUTPUT
+        echo "server-type=$SELECTED_SERVER_TYPE" >> $GITHUB_OUTPUT
