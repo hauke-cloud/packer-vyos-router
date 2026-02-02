@@ -80,6 +80,7 @@ docker run --rm \
         --build-by "${BUILD_BY}" \
         --build-type release \
         --custom-package vyos-1x-smoketest \
+        --custom-package cloud-init \
         --version "${BUILD_VERSION}" \
         generic
 
