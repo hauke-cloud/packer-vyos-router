@@ -2,8 +2,8 @@ name: Cleanup Snapshots
 
 on:
   schedule:
-    - cron: "0 2 * * *"  # Run nightly at 2 AM UTC
-  workflow_dispatch:     # Allow manual trigger
+    - cron: "0 2 * * *" # Run nightly at 2 AM UTC
+  workflow_dispatch: # Allow manual trigger
 
 jobs:
   cleanup:
@@ -45,7 +45,7 @@ jobs:
           # Group snapshots by major version
           declare -A VERSION_SNAPSHOTS
           declare -A LATEST_BY_VERSION
-          
+
           for id in "${SNAPSHOT_IDS[@]}"; do
             SNAPSHOT=$(echo "$SNAPSHOTS" | jq -r "select(.id == $id)")
             SNAPSHOT_NAME=$(echo "$SNAPSHOT" | jq -r '.description')
@@ -53,21 +53,21 @@ jobs:
             PROTECTED=$(echo "$SNAPSHOT" | jq -r '.labels.protected // "false"')
             RELEASE_VERSION=$(echo "$SNAPSHOT" | jq -r '.labels["release.version"] // ""')
             VYOS_VERSION=$(echo "$SNAPSHOT" | jq -r '.labels["vyos.version"] // ""')
-            
+
             echo "  ID: $id"
             echo "  Name: $SNAPSHOT_NAME"
             echo "  Created: $CREATED"
             echo "  Protected: $PROTECTED"
             echo "  Release Version: ${RELEASE_VERSION:-none}"
             echo "  VyOS Version: ${VYOS_VERSION:-none}"
-            
+
             # Skip protected snapshots
             if [ "$PROTECTED" == "true" ]; then
               echo "  → KEEPING (protected=true)"
               echo ""
               continue
             fi
-            
+
             # Extract major version from release.version or vyos.version
             MAJOR_VERSION=""
             if [ -n "$RELEASE_VERSION" ]; then
@@ -76,7 +76,7 @@ jobs:
               # For VyOS build versions like 202601261300, use year+month as major version
               MAJOR_VERSION=$(echo "$VYOS_VERSION" | cut -c1-6)
             fi
-            
+
             if [ -n "$MAJOR_VERSION" ]; then
               # Track snapshots by major version
               if [ -z "${VERSION_SNAPSHOTS[$MAJOR_VERSION]}" ]; then
@@ -90,7 +90,7 @@ jobs:
             else
               echo "  → No version information found"
             fi
-            
+
             echo ""
           done
 
@@ -98,7 +98,7 @@ jobs:
           echo "  Snapshot Summary by Version"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          
+
           for version in "${!VERSION_SNAPSHOTS[@]}"; do
             SNAPSHOT_LIST=(${VERSION_SNAPSHOTS[$version]})
             LATEST_ID=${LATEST_BY_VERSION[$version]}
@@ -116,16 +116,17 @@ jobs:
           KEPT_COUNT=0
 
           for id in "${SNAPSHOT_IDS[@]}"; do
+
             SNAPSHOT=$(echo "$SNAPSHOTS" | jq -r "select(.id == $id)")
             PROTECTED=$(echo "$SNAPSHOT" | jq -r '.labels.protected // "false"')
             SNAPSHOT_NAME=$(echo "$SNAPSHOT" | jq -r '.description')
-            
+
             # Skip if protected
             if [ "$PROTECTED" == "true" ]; then
               ((KEPT_COUNT++))
               continue
             fi
-            
+
             # Check if this is the latest for its version
             IS_LATEST=false
             for version in "${!LATEST_BY_VERSION[@]}"; do
@@ -134,19 +135,19 @@ jobs:
                 break
               fi
             done
-            
+
             if [ "$IS_LATEST" == "true" ]; then
               echo "✓ KEEPING: $SNAPSHOT_NAME (ID: $id) - latest for version"
               ((KEPT_COUNT++))
             else
               echo "🗑️  DELETING: $SNAPSHOT_NAME (ID: $id)"
-              
+
               DELETE_RESPONSE=$(curl -s -w "\n%{http_code}" -X DELETE \
                 -H "Authorization: Bearer $HCLOUD_TOKEN" \
                 "https://api.hetzner.cloud/v1/images/$id")
-              
+
               HTTP_CODE=$(echo "$DELETE_RESPONSE" | tail -n1)
-              
+
               if [ "$HTTP_CODE" == "204" ]; then
                 echo "   ✓ Deleted successfully"
                 ((DELETED_COUNT++))

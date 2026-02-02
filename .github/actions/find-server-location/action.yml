@@ -42,6 +42,10 @@ runs:
         SELECTED_LOCATION=""
         SELECTED_SERVER_TYPE=""
 
+        # Get all datacenters with current availability
+        DATACENTERS_DATA=$(curl -s -H "Authorization: Bearer $HCLOUD_TOKEN" \
+          "https://api.hetzner.cloud/v1/datacenters")
+
         # Try each server type in priority order
         for server_type in "${SERVER_TYPE_ARRAY[@]}"; do
           server_type=$(echo "$server_type" | xargs) # trim whitespace
@@ -58,15 +62,19 @@ runs:
             continue
           fi
 
-          # Extract available locations for this server type
-          AVAILABLE_LOCATIONS=$(echo "$SERVER_TYPE_DATA" | jq -r '.server_types[0].prices[] | select(.location != null) | .location' | sort)
+          # Extract server type ID
+          SERVER_TYPE_ID=$(echo "$SERVER_TYPE_DATA" | jq -r '.server_types[0].id')
+
+          # Extract locations where server type is currently available from datacenters
+          AVAILABLE_LOCATIONS=$(echo "$DATACENTERS_DATA" | jq -r --arg st_id "$SERVER_TYPE_ID" \
+            '.datacenters[] | select(.server_types.available | map(tostring) | index($st_id)) | .location.name' | sort -u)
 
           if [ -z "$AVAILABLE_LOCATIONS" ]; then
-            echo "  No locations available for $server_type"
+            echo "  No locations currently available for $server_type"
             continue
           fi
 
-          echo "  Available locations for $server_type:"
+          echo "  Currently available locations for $server_type:"
           echo "$AVAILABLE_LOCATIONS" | sed 's/^/    /'
 
           # Try to find a preferred location that's available
