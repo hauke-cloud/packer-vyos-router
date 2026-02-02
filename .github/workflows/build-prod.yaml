@@ -32,12 +32,12 @@ jobs:
               repo: context.repo.repo,
               run_id: context.payload.workflow_run.id
             });
-            
+
             if (artifacts.data.artifacts.length === 0) {
               core.setFailed('No artifacts found');
               return;
             }
-            
+
             const artifact = artifacts.data.artifacts[0];
             core.setOutput('artifact_name', artifact.name);
             core.setOutput('run_id', context.payload.workflow_run.id);
@@ -67,7 +67,7 @@ jobs:
           echo "iso_path=$ISO_FULL_PATH" >> $GITHUB_OUTPUT
           echo "Using ISO: $ISO_FULL_PATH"
           ls -lh "$ISO_FULL_PATH"
-          
+
           # Read customization version from metadata file
           VERSION_FILE=$(find ./iso -name "customization-version.txt" -type f | head -n1)
           if [ -n "$VERSION_FILE" ] && [ -f "$VERSION_FILE" ]; then
@@ -77,7 +77,7 @@ jobs:
           else
             echo "WARNING: No customization-version.txt found, version will not be included in labels"
           fi
-          
+
           # Read release version from metadata file (for release builds)
           RELEASE_FILE=$(find ./iso -name "release-version.txt" -type f | head -n1)
           if [ -n "$RELEASE_FILE" ] && [ -f "$RELEASE_FILE" ]; then
@@ -94,7 +94,6 @@ jobs:
         uses: ./.github/actions/find-server-location
         with:
           token: ${{ secrets.HCLOUD_TOKEN }}
-          server-types: "cx23,cx33,cx43"
           preferred-locations: "nbg1,fsn1,hel1,ash,hil"
 
       - name: Build image
