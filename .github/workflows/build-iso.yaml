@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
@@ -156,7 +156,7 @@ jobs:
           # Save version to metadata file for Packer build
           echo "$CUSTOMIZATION_VERSION" > vyos-build/customization-version.txt
           echo "✓ Saved version to customization-version.txt"
-          
+
           # Save release version if this is a release build
           if [ "${{ steps.check_release.outputs.is_release }}" == "true" ]; then
             echo "${{ steps.check_release.outputs.release_version }}" > vyos-build/release-version.txt
@@ -191,7 +191,6 @@ jobs:
               --build-by "$BUILD_BY" \
               --build-type release \
               --custom-package vyos-1x-smoketest \
-              --custom-package cloud-init \
               --debian-mirror "$DEBIAN_MIRROR" \
               --debian-security-mirror "$DEBIAN_SECURITY_MIRROR" \
               --version "${{ steps.set_env_variables.outputs.build_version }}" \
@@ -223,12 +222,12 @@ jobs:
           sudo chown -R $(id -u):$(id -g) .
           [ -f manifest.json ] && mv manifest.json $GITHUB_WORKSPACE/ || echo '{"artifacts": []}' > $GITHUB_WORKSPACE/manifest.json
           mv ${GENERIC_IMAGE_ISO} $GITHUB_WORKSPACE/
-          
+
           # Move customization version metadata
           if [ -f ../customization-version.txt ]; then
             mv ../customization-version.txt $GITHUB_WORKSPACE/
           fi
-          
+
           # Move release version metadata if exists
           if [ -f ../release-version.txt ]; then
             mv ../release-version.txt $GITHUB_WORKSPACE/
@@ -253,23 +252,23 @@ jobs:
           name: Release ${{ steps.check_release.outputs.release_tag }}
           body: |
             # VyOS Router Release ${{ steps.check_release.outputs.release_tag }}
-            
+
             ## Build Information
-            
+
             - **Release Version**: ${{ steps.check_release.outputs.release_version }}
             - **VyOS Build Version**: ${{ steps.set_env_variables.outputs.build_version }}
             - **VyOS Customization Version**: ${{ steps.build_generic_iso.outputs.customization_version }}
             - **Build Date**: ${{ steps.set_env_variables.outputs.TIMESTAMP }}
             - **Built By**: ${{ steps.set_env_variables.outputs.BUILD_BY }}
-            
+
             ## ISO Image
-            
+
             - **Filename**: ${{ steps.build_generic_iso.outputs.generic_image_iso }}
-            
+
             ## Installation
-            
+
             Download the ISO image and use it with the Packer template or deploy manually.
-            
+
             For Packer builds with this release:
             ```bash
             packer build \
@@ -278,9 +277,9 @@ jobs:
               -var="release_version=${{ steps.check_release.outputs.release_version }}" \
               vyos.pkr.hcl
             ```
-            
+
             ## Customizations
-            
+
             This release includes customizations from [vyos-customization ${{ steps.build_generic_iso.outputs.customization_version }}](https://github.com/hauke-cloud/vyos-customization/releases/tag/${{ steps.build_generic_iso.outputs.customization_version }}).
           draft: false
           prerelease: false
