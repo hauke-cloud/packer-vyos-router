@@ -25,7 +25,7 @@ env:
   VYOS_MIRROR: https://packages.vyos.net/repositories/current/
 
 jobs:
-  build_generic_iso:
+  build_iso:
     runs-on: ubuntu-22.04
     permissions:
       contents: write
