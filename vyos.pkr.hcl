@@ -105,6 +105,7 @@ source "hcloud" "vyos" {
   image       = var.server_image
   location    = var.server_location
   server_type = var.server_type
+  rescue      = "linux64"
 
   server_name = "${var.build_identifier}-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   server_labels = {
@@ -112,16 +113,7 @@ source "hcloud" "vyos" {
     managed-by = "packer"
   }
 
-  ssh_username = var.ssh_username
-  # After ISO boot, we need to use password auth since SSH keys are lost
-  ssh_password = var.ssh_password
-
-  user_data = <<-EOF
-    #cloud-config
-    system_info:
-      default_user:
-        name: ${var.ssh_username}
-  EOF
+  ssh_username = "root"
 
   snapshot_name   = "vyos-${var.vyos_version}-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   snapshot_labels = local.build_labels
@@ -132,29 +124,23 @@ build {
 
   source "source.hcloud.vyos" {}
 
+  # Upload VyOS ISO
   provisioner "file" {
     source      = local.iso_source
     destination = "/tmp/boot.iso"
   }
 
-  # Boot into VyOS live ISO
+  # Upload direct installation script
   provisioner "file" {
-    source      = "${path.root}/scripts/boot_iso.sh"
-    destination = "/tmp/boot_iso.sh"
+    source      = "${path.root}/scripts/install_vyos_direct.sh"
+    destination = "/tmp/install_vyos_direct.sh"
   }
 
-  provisioner "shell" {
-    expect_disconnect = true
-    inline = [
-      "chmod +x /tmp/boot_iso.sh",
-      "sudo /tmp/boot_iso.sh"
-    ]
-    pause_after = "60s"
-  }
-
+  # Install VyOS directly from Debian rescue system (no reboot needed)
   provisioner "shell" {
     inline = [
-      "sudo /usr/local/bin/install-image",
+      "chmod +x /tmp/install_vyos_direct.sh",
+      "/tmp/install_vyos_direct.sh"
     ]
   }
 }
