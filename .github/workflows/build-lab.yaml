@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     concurrency:
-      group: public
+      group: lab
       cancel-in-progress: false
 
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
