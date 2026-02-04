@@ -190,7 +190,7 @@ jobs:
               --architecture amd64 \
               --build-by "$BUILD_BY" \
               --build-type release \
-              --custom-package vyos-1x-smoketest \
+              --custom-package cloud-init \
               --debian-mirror "$DEBIAN_MIRROR" \
               --debian-security-mirror "$DEBIAN_SECURITY_MIRROR" \
               --version "${{ steps.set_env_variables.outputs.build_version }}" \
