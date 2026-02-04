@@ -192,6 +192,7 @@ jobs:
               --build-type release \
               --custom-package vyos-1x-smoketest \
               --custom-package cloud-init \
+              --custom-package python3-systemd \
               --debian-mirror "$DEBIAN_MIRROR" \
               --debian-security-mirror "$DEBIAN_SECURITY_MIRROR" \
               --version "${{ steps.set_env_variables.outputs.build_version }}" \

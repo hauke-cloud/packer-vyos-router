@@ -81,6 +81,7 @@ docker run --rm \
         --build-type release \
         --custom-package vyos-1x-smoketest \
         --custom-package cloud-init \
+        --custom-package python3-systemd \
         --version "${BUILD_VERSION}" \
         generic
 
