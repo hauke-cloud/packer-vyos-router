@@ -24,8 +24,8 @@ echo ""
 
 # Verify ISO exists
 if [ ! -f /tmp/boot.iso ]; then
-    echo "ERROR: /tmp/boot.iso not found!"
-    exit 1
+  echo "ERROR: /tmp/boot.iso not found!"
+  exit 1
 fi
 
 # Mount the ISO
@@ -35,15 +35,15 @@ mount -o loop /tmp/boot.iso "$ISO_MOUNT"
 
 # Verify required files exist in ISO
 if [ ! -f "$ISO_MOUNT/live/filesystem.squashfs" ]; then
-    echo "ERROR: filesystem.squashfs not found in ISO"
-    umount "$ISO_MOUNT"
-    exit 1
+  echo "ERROR: filesystem.squashfs not found in ISO"
+  umount "$ISO_MOUNT"
+  exit 1
 fi
 
 if [ ! -f "$ISO_MOUNT/live/vmlinuz" ] || [ ! -f "$ISO_MOUNT/live/initrd.img" ]; then
-    echo "ERROR: Kernel files not found in ISO"
-    umount "$ISO_MOUNT"
-    exit 1
+  echo "ERROR: Kernel files not found in ISO"
+  umount "$ISO_MOUNT"
+  exit 1
 fi
 
 echo "ISO mounted successfully"
@@ -130,7 +130,34 @@ system {
             authentication {
                 encrypted-password "$ENCRYPTED_PASSWORD"
             }
+            level admin
         }
+    }
+    console {
+        device ttyS0 {
+            speed 115200
+        }
+    }
+    ntp {
+        server "ntp1.hetzner.de"
+        server "ntp2.hetzner.com"
+        server "ntp3.hetzner.net"
+    }
+    time-zone UTC
+}
+
+interfaces {
+    loopback lo {
+    }
+    ethernet eth0 {
+      address dhcp
+      description "WAN"
+    }
+}
+
+service {
+    ssh {
+        port 22
     }
 }
 EOF
@@ -292,7 +319,7 @@ if [ "$(uname -m)" = "x86_64" ]; then
   else
     echo "Skipping BIOS bootloader (modules not available)"
   fi
-  
+
   # UEFI mode (required for Hetzner Cloud)
   echo "Installing UEFI bootloader..."
   grub-install --no-floppy --recheck --target=x86_64-efi \
