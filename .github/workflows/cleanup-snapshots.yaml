@@ -123,7 +123,7 @@ jobs:
 
             # Skip if protected
             if [ "$PROTECTED" == "true" ]; then
-              ((KEPT_COUNT++))
+              KEPT_COUNT=$((KEPT_COUNT + 1))
               continue
             fi
 
@@ -138,7 +138,7 @@ jobs:
 
             if [ "$IS_LATEST" == "true" ]; then
               echo "✓ KEEPING: $SNAPSHOT_NAME (ID: $id) - latest for version"
-              ((KEPT_COUNT++))
+              KEPT_COUNT=$((KEPT_COUNT + 1))
             else
               echo "🗑️  DELETING: $SNAPSHOT_NAME (ID: $id)"
 
@@ -150,7 +150,7 @@ jobs:
 
               if [ "$HTTP_CODE" == "204" ]; then
                 echo "   ✓ Deleted successfully"
-                ((DELETED_COUNT++))
+                DELETED_COUNT=$((DELETED_COUNT + 1))
               else
                 echo "   ✗ Failed to delete (HTTP $HTTP_CODE)"
                 echo "$DELETE_RESPONSE" | head -n-1
