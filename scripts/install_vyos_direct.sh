@@ -106,8 +106,9 @@ mount "$PART_EFI" "$DIR_DST_ROOT/boot/efi"
 
 # Create directory structure
 echo "Creating directory structure..."
-mkdir -p "$DIR_DST_ROOT/boot/$IMAGE_NAME/rw/opt/vyatta/etc/config"
+mkdir -p "$DIR_DST_ROOT/boot/$IMAGE_NAME/rw/opt/vyatta/etc/config/archive"
 chmod 2775 "$DIR_DST_ROOT/boot/$IMAGE_NAME/rw/opt/vyatta/etc/config"
+chmod 0777 "$DIR_DST_ROOT/boot/$IMAGE_NAME/rw/opt/vyatta/etc/config/archive"
 
 # Copy kernel files from ISO
 echo "Copying kernel files from ISO..."
