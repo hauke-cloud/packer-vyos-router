@@ -283,7 +283,7 @@ IMAGE_UUID=$(python3 -c "import uuid; print('uuid5-' + str(uuid.uuid5(uuid.NAMES
 # Create GRUB menu entry for the image
 cat >"$DIR_DST_ROOT/boot/grub/grub.cfg.d/vyos-versions/${IMAGE_NAME}.cfg" <<GRUBEOF
 menuentry "$IMAGE_NAME" --id $IMAGE_UUID {
-    set boot_opts="boot=live rootdelay=5 noautologin vyos-union=/boot/$IMAGE_NAME"
+    set boot_opts="boot=live rootdelay=5 noautologin net.ifnames=0 biosdevname=0 vyos-union=/boot/$IMAGE_NAME"
     if [ "\${console_type}" == "ttyS" ]; then
         set console_opts="console=\${console_type}\${console_num},\${console_speed}"
     else
