@@ -166,6 +166,8 @@ jobs:
               --custom-package cloud-init \
               --custom-package python3-systemd \
               --custom-package ifupdown \
+              --custom-package python3-yaml \
+              --custom-package python3-hcloud \
               --debian-mirror "$DEBIAN_MIRROR" \
               --debian-security-mirror "$DEBIAN_SECURITY_MIRROR" \
               --version "${{ steps.set_env_variables.outputs.build_version }}" \
