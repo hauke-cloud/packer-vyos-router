@@ -78,6 +78,16 @@ jobs:
             echo "WARNING: No customization-version.txt found, version will not be included in labels"
           fi
 
+          # Read VRRP failover version from metadata file
+          VRRP_VERSION_FILE=$(find ./iso -name "vrrp-failover-version.txt" -type f | head -n1)
+          if [ -n "$VRRP_VERSION_FILE" ] && [ -f "$VRRP_VERSION_FILE" ]; then
+            VRRP_FAILOVER_VERSION=$(cat "$VRRP_VERSION_FILE")
+            echo "vyos_vrrp_failover_version=$VRRP_FAILOVER_VERSION" >> $GITHUB_OUTPUT
+            echo "Found VRRP failover version: $VRRP_FAILOVER_VERSION"
+          else
+            echo "WARNING: No vrrp-failover-version.txt found, version will not be included in labels"
+          fi
+
           # Read release version from metadata file (for release builds)
           RELEASE_FILE=$(find ./iso -name "release-version.txt" -type f | head -n1)
           if [ -n "$RELEASE_FILE" ] && [ -f "$RELEASE_FILE" ]; then
@@ -106,6 +116,7 @@ jobs:
           server-location: ${{ steps.location.outputs.location }}
           server-type: ${{ steps.location.outputs.server-type }}
           vyos-customization-version: ${{ steps.iso_path.outputs.vyos_customization_version }}
+          vyos-vrrp-failover-version: ${{ steps.iso_path.outputs.vyos_vrrp_failover_version }}
           release-version: ${{ steps.iso_path.outputs.release_version }}
 
   cleanup:

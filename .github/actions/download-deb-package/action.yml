@@ -1,0 +1,95 @@
+name: Download Debian Package from GitHub Release
+description: Downloads the latest .deb package from a GitHub repository release
+inputs:
+  repository:
+    description: 'GitHub repository in format owner/repo'
+    required: true
+  output-dir:
+    description: 'Directory to save the downloaded .deb package'
+    required: true
+  package-name:
+    description: 'Descriptive name for the package (for logging)'
+    required: false
+    default: 'package'
+outputs:
+  version:
+    description: 'Version tag of the downloaded package'
+    value: ${{ steps.download.outputs.version }}
+  filename:
+    description: 'Filename of the downloaded .deb package'
+    value: ${{ steps.download.outputs.filename }}
+  path:
+    description: 'Full path to the downloaded .deb package'
+    value: ${{ steps.download.outputs.path }}
+runs:
+  using: composite
+  steps:
+    - name: Download package
+      id: download
+      shell: bash
+      run: |
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  Downloading ${{ inputs.package-name }} Package"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        
+        # Fetch latest version from GitHub
+        echo "📦 Fetching latest version from ${{ inputs.repository }}..."
+        REPO="${{ inputs.repository }}"
+        API_URL="https://api.github.com/repos/${REPO}/releases/latest"
+        
+        VERSION=$(curl -s "${API_URL}" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        
+        if [ -z "$VERSION" ]; then
+          echo "❌ Error: Could not fetch latest version from GitHub"
+          exit 1
+        fi
+        
+        echo "  Version: $VERSION"
+        echo ""
+        
+        # Get release info to find the actual .deb filename
+        echo "📥 Fetching release info..."
+        RELEASE_INFO=$(curl -s "https://api.github.com/repos/${REPO}/releases/tags/${VERSION}")
+        
+        # Extract .deb file info
+        DEB_FILE=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".deb")) | .name' | head -n1)
+        DOWNLOAD_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".deb")) | .browser_download_url' | head -n1)
+        
+        if [ -z "$DEB_FILE" ] || [ "$DEB_FILE" = "null" ]; then
+          echo "❌ Error: Could not find .deb file in release $VERSION"
+          echo "   Make sure the release exists and has a .deb asset at:"
+          echo "   https://github.com/${REPO}/releases/tag/$VERSION"
+          exit 1
+        fi
+        
+        echo "  File: $DEB_FILE"
+        echo "  URL: $DOWNLOAD_URL"
+        echo ""
+        
+        # Create output directory
+        mkdir -p "${{ inputs.output-dir }}"
+        
+        # Download the .deb package
+        echo "📥 Downloading package..."
+        OUTPUT_PATH="${{ inputs.output-dir }}/$DEB_FILE"
+        if ! curl -L -f -o "$OUTPUT_PATH" "$DOWNLOAD_URL"; then
+          echo "❌ Download failed!"
+          echo "   Tried to download from: $DOWNLOAD_URL"
+          exit 1
+        fi
+        
+        echo ""
+        echo "✓ Package downloaded:"
+        ls -lh "$OUTPUT_PATH"
+        echo ""
+        
+        # Set outputs
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "filename=$DEB_FILE" >> $GITHUB_OUTPUT
+        echo "path=$OUTPUT_PATH" >> $GITHUB_OUTPUT
+        
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  ✅ Package Ready (version $VERSION)"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""

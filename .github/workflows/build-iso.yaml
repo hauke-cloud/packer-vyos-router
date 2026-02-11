@@ -37,6 +37,7 @@ jobs:
       generic_image_iso: ${{ steps.build_generic_iso.outputs.generic_image_iso }}
       generic_image_name: ${{ steps.build_generic_iso.outputs.generic_image_name }}
       customization_version: ${{ steps.build_generic_iso.outputs.customization_version }}
+      vrrp_failover_version: ${{ steps.build_generic_iso.outputs.vrrp_failover_version }}
       is_release: ${{ steps.check_release.outputs.is_release }}
       release_version: ${{ steps.check_release.outputs.release_version }}
       release_tag: ${{ steps.check_release.outputs.release_tag }}
@@ -103,77 +104,41 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Download vyos-customization package from releases
+      - name: Download vyos-customization package
+        id: download_customization
+        uses: ./.github/actions/download-deb-package
+        with:
+          repository: hauke-cloud/vyos-customization
+          output-dir: vyos-build/packages
+          package-name: vyos-customization
+
+      - name: Download vyos-hetzner-vrrp-failover package
+        id: download_vrrp_failover
+        uses: ./.github/actions/download-deb-package
+        with:
+          repository: hauke-cloud/vyos-hetzner-vrrp-failover
+          output-dir: vyos-build/packages
+          package-name: vyos-hetzner-vrrp-failover
+
+      - name: Save package metadata
         run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Downloading vyos-customization Package"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-
-          # Fetch latest version from GitHub
-          echo "📦 Fetching latest vyos-customization version from GitHub..."
-          CUSTOMIZATION_VERSION=$(./scripts/get_latest_vyos_customization_version.sh)
-
-          if [ -z "$CUSTOMIZATION_VERSION" ]; then
-            echo "❌ Error: Could not fetch latest version from GitHub"
-            exit 1
-          fi
-
-          echo "  Version: $CUSTOMIZATION_VERSION"
-          echo ""
-
-          # Get release info to find the actual .deb filename
-          echo "📥 Fetching release info..."
-          RELEASE_INFO=$(curl -s "https://api.github.com/repos/hauke-cloud/vyos-customization/releases/tags/${CUSTOMIZATION_VERSION}")
-
-          # Extract .deb file info
-          DEB_FILE=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".deb")) | .name' | head -n1)
-          DOWNLOAD_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".deb")) | .browser_download_url' | head -n1)
-
-          if [ -z "$DEB_FILE" ] || [ "$DEB_FILE" = "null" ]; then
-            echo "❌ Error: Could not find .deb file in release $CUSTOMIZATION_VERSION"
-            echo "   Make sure the release exists and has a .deb asset at:"
-            echo "   https://github.com/hauke-cloud/vyos-customization/releases/tag/$CUSTOMIZATION_VERSION"
-            exit 1
-          fi
-
-          echo "  File: $DEB_FILE"
-          echo "  URL: $DOWNLOAD_URL"
-          echo ""
-
-          # Create packages directory
-          mkdir -p vyos-build/packages
-
-          # Download the .deb package
-          echo "📥 Downloading package..."
-          if ! curl -L -f -o "vyos-build/packages/$DEB_FILE" "$DOWNLOAD_URL"; then
-            echo "❌ Download failed!"
-            echo "   Tried to download from: $DOWNLOAD_URL"
-            exit 1
-          fi
-
-          echo ""
-          echo "✓ Package downloaded:"
-          ls -lh vyos-build/packages/
-          echo ""
-
-          # Export version for use in later steps
-          echo "CUSTOMIZATION_VERSION=$CUSTOMIZATION_VERSION" >> $GITHUB_ENV
+          # Export versions for use in later steps
+          echo "CUSTOMIZATION_VERSION=${{ steps.download_customization.outputs.version }}" >> $GITHUB_ENV
+          echo "VRRP_FAILOVER_VERSION=${{ steps.download_vrrp_failover.outputs.version }}" >> $GITHUB_ENV
 
           # Save version to metadata file for Packer build
-          echo "$CUSTOMIZATION_VERSION" > vyos-build/customization-version.txt
-          echo "✓ Saved version to customization-version.txt"
+          echo "${{ steps.download_customization.outputs.version }}" > vyos-build/customization-version.txt
+          echo "✓ Saved customization version to customization-version.txt"
+
+          # Save VRRP failover version
+          echo "${{ steps.download_vrrp_failover.outputs.version }}" > vyos-build/vrrp-failover-version.txt
+          echo "✓ Saved VRRP failover version to vrrp-failover-version.txt"
 
           # Save release version if this is a release build
           if [ "${{ steps.check_release.outputs.is_release }}" == "true" ]; then
             echo "${{ steps.check_release.outputs.release_version }}" > vyos-build/release-version.txt
             echo "✓ Saved release version to release-version.txt"
           fi
-
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  ✅ Package Ready (version $CUSTOMIZATION_VERSION)"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
 
       - name: Build generic ISO image using Docker
         id: build_generic_iso
@@ -227,6 +192,7 @@ jobs:
           echo "generic_image_name=${GENERIC_IMAGE_NAME}" >> $GITHUB_OUTPUT
           echo "generic_image_iso=${GENERIC_IMAGE_ISO}" >> $GITHUB_OUTPUT
           echo "customization_version=${CUSTOMIZATION_VERSION}" >> $GITHUB_OUTPUT
+          echo "vrrp_failover_version=${VRRP_FAILOVER_VERSION}" >> $GITHUB_OUTPUT
 
           # Fix ownership and move artifacts to workspace
           sudo chown -R $(id -u):$(id -g) .
@@ -236,6 +202,11 @@ jobs:
           # Move customization version metadata
           if [ -f ../customization-version.txt ]; then
             mv ../customization-version.txt $GITHUB_WORKSPACE/
+          fi
+
+          # Move VRRP failover version metadata
+          if [ -f ../vrrp-failover-version.txt ]; then
+            mv ../vrrp-failover-version.txt $GITHUB_WORKSPACE/
           fi
 
           # Move release version metadata if exists
@@ -249,6 +220,7 @@ jobs:
           path: |
             manifest.json
             customization-version.txt
+            vrrp-failover-version.txt
             release-version.txt
             ${{ steps.build_generic_iso.outputs.generic_image_iso }}
           retention-days: 15
@@ -296,5 +268,6 @@ jobs:
           files: |
             ${{ steps.build_generic_iso.outputs.generic_image_iso }}
             customization-version.txt
+            vrrp-failover-version.txt
             release-version.txt
             manifest.json

@@ -30,6 +30,12 @@ variable "vyos_customization_version" {
   description = "VyOS customization package version used in the ISO. Should match the version embedded in the ISO filename."
 }
 
+variable "vyos_vrrp_failover_version" {
+  type        = string
+  default     = ""
+  description = "VyOS Hetzner VRRP failover package version included in the ISO."
+}
+
 variable "release_version" {
   type        = string
   default     = ""
@@ -87,6 +93,7 @@ locals {
     "packer.io/version"          = "{{packer_version}}"
     "vyos.version"               = var.vyos_version
     "vyos.customization.version" = var.vyos_customization_version
+    "vyos.vrrp-failover.version" = var.vyos_vrrp_failover_version
     "managed-by"                 = "packer"
   }
 
