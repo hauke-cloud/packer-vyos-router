@@ -67,7 +67,13 @@ variable "server_image" {
 variable "server_type" {
   type        = string
   default     = "cx23"
-  description = "Server type for building. cx22 is cost-efficient for builds."
+  description = "Type to which the server will be upgraded. cx23 is cost-efficient for builds."
+}
+
+variable "server_base_type" {
+  type        = string
+  default     = "cx23"
+  description = "Server type for building. cx23 is cost-efficient for builds."
 }
 
 variable "ssh_username" {
@@ -108,11 +114,12 @@ locals {
 }
 
 source "hcloud" "vyos" {
-  token       = var.hcloud_token
-  image       = var.server_image
-  location    = var.server_location
-  server_type = var.server_type
-  rescue      = "linux64"
+  token               = var.hcloud_token
+  image               = var.server_image
+  location            = var.server_location
+  server_type         = var.server_base_type
+  upgrade_server_type = var.server_type
+  rescue              = "linux64"
 
   server_name = "${var.build_identifier}-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   server_labels = {
